@@ -1,0 +1,67 @@
+# Dependencies
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+secrets.json
+
+# Session & Auth Files (CRITICAL - NEVER COMMIT)
+instacart_state.json
+*_state.json
+*_cookies.txt
+raw_cookies.txt
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build & Logs
+dist/
+build/
+*.log
+*.egg-info/
+
+# Database dumps
+*.sql
+*.dump
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Streamlit
+.streamlit/
+
+# Debug files
+dashboard/error_*.png
+ingest/debug_*.html
+
+# Backup files
+*.backup
+*.backup_*
+*.bak
+.backup_*/
+
+# Internal documentation (contains credentials)
+.clinerules
+dashboard/*.png
+dashboard/*.png
