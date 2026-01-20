@@ -205,6 +205,14 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs(["🛒 Suggested Order", "🍽️ Meal Pl
 with tab1:
     st.header("Smart Replenishment")
     st.caption("Velocity-based reorder suggestions with category-specific thresholds")
+    
+    # Refresh button
+    col_refresh, col_spacer = st.columns([1, 4])
+    with col_refresh:
+        if st.button("🔄 Refresh Data", use_container_width=True, help="Recalculate burn rates from latest purchase data"):
+            load_inventory_data.clear()
+            get_velocity_data.clear()
+            st.rerun()
 
     # Load velocity data
     try:
@@ -468,6 +476,82 @@ with tab2:
 with tab3:
     st.header("Master Inventory")
     st.caption("Complete history of all purchased items")
+    
+    # Action buttons row
+    col_fetch, col_classify, col_spacer = st.columns([1, 1, 2])
+    
+    with col_fetch:
+        if st.button("📬 Fetch New Receipts", use_container_width=True, help="Scrape new receipts from Gmail (Instacart + Costco)"):
+            import subprocess
+            
+            with st.status("Fetching receipts from Gmail...", expanded=True) as status:
+                status.write("Connecting to Gmail IMAP...")
+                status.write("Searching for Instacart and Costco receipts...")
+                
+                try:
+                    result = subprocess.run(
+                        [".venv/bin/python", "ingest/ingest_gmail.py"],
+                        capture_output=True,
+                        text=True,
+                        timeout=120
+                    )
+                    
+                    status.code(result.stdout)
+                    
+                    if result.returncode == 0:
+                        status.update(label="✅ Receipt fetch complete!", state="complete", expanded=False)
+                        st.success("New receipts imported! Run classifier to categorize new items.")
+                        # Clear both caches to show new data
+                        load_inventory_data.clear()
+                        get_velocity_data.clear()
+                        st.rerun()
+                    else:
+                        status.update(label="❌ Fetch failed", state="error")
+                        st.error(result.stderr if result.stderr else "Unknown error")
+                        
+                except subprocess.TimeoutExpired:
+                    status.update(label="⏱️ Timeout", state="error")
+                    st.error("Receipt fetch timed out after 2 minutes")
+                except Exception as e:
+                    status.update(label="❌ Error", state="error")
+                    st.error(str(e))
+    
+    with col_classify:
+        if st.button("🏷️ Classify Products", use_container_width=True, help="Use AI to categorize unclassified products"):
+            import subprocess
+            
+            with st.status("Classifying products with AI...", expanded=True) as status:
+                status.write("Finding unclassified products...")
+                status.write("Sending to LLM for categorization...")
+                
+                try:
+                    result = subprocess.run(
+                        [".venv/bin/python", "logic/classifier.py"],
+                        capture_output=True,
+                        text=True,
+                        timeout=180
+                    )
+                    
+                    status.code(result.stdout)
+                    
+                    if result.returncode == 0:
+                        status.update(label="✅ Classification complete!", state="complete", expanded=False)
+                        st.success("Products classified! Refresh to see updates.")
+                        load_inventory_data.clear()
+                        get_velocity_data.clear()
+                        st.rerun()
+                    else:
+                        status.update(label="❌ Classification failed", state="error")
+                        st.error(result.stderr if result.stderr else "Unknown error")
+                        
+                except subprocess.TimeoutExpired:
+                    status.update(label="⏱️ Timeout", state="error")
+                    st.error("Classification timed out after 3 minutes")
+                except Exception as e:
+                    status.update(label="❌ Error", state="error")
+                    st.error(str(e))
+    
+    st.divider()
 
     # Search
     search = st.text_input("🔍 Search products", placeholder="Type to filter...")
