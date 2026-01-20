@@ -688,7 +688,7 @@ with tab4:
 # Tab 5: Receipt Scanner
 with tab5:
     st.header("Receipt Scanner")
-    st.caption("AI-powered receipt OCR using BakLLaVA (100% local, free)")
+    st.caption("AI-powered receipt OCR using LLaVA 13B (100% local, free)")
     
     # Initialize OCR
     ocr = get_ocr()
@@ -700,10 +700,10 @@ with tab5:
         health = ocr.health_check()
         
         if health["status"] == "healthy":
-            st.success("✅ BakLLaVA Ready")
+            st.success("✅ LLaVA 13B Ready")
         elif health["status"] == "model_missing":
-            st.warning("⚠️ BakLLaVA not found")
-            st.code("ollama pull bakllava")
+            st.warning("⚠️ LLaVA 13B not found")
+            st.code("ollama pull llava:13b")
         else:
             st.error("❌ Ollama not running")
     
@@ -735,20 +735,25 @@ with tab5:
                             st.success(f"Found {len(items)} items!")
                         else:
                             st.warning("No items detected. Try a clearer image.")
-                            st.caption("Raw text extraction:")
-                            raw_text = ocr.extract_text(image_bytes=image_bytes)
-                            st.text_area("Raw OCR Output", raw_text, height=200)
+                        
+                        # Always show debug info
+                        with st.expander("🔧 Debug: Raw OCR Output", expanded=False):
+                            debug_text = ocr.extract_with_debug(image_bytes=image_bytes)
+                            st.text_area("OCR Detection Details", debug_text, height=300)
                             
                     except Exception as e:
                         st.error(f"OCR failed: {str(e)}")
             
-            # Display extracted items
+            # Display extracted items with editable Qty and Unit Price
             if "scanned_items" in st.session_state and st.session_state["scanned_items"]:
                 items = st.session_state["scanned_items"]
                 
+                # Build dataframe from session state (includes previously calculated totals)
                 scan_df = pd.DataFrame(items)
                 scan_df = scan_df[["name", "quantity", "unit_price", "total_price"]]
                 scan_df.columns = ["Item Name", "Qty", "Unit Price", "Total"]
+                
+                st.caption("✏️ Edit Qty or Unit Price - Total recalculates automatically")
                 
                 edited_df = st.data_editor(
                     scan_df,
@@ -756,11 +761,37 @@ with tab5:
                     use_container_width=True,
                     column_config={
                         "Item Name": st.column_config.TextColumn(width="large"),
-                        "Qty": st.column_config.NumberColumn(min_value=1, max_value=100),
-                        "Unit Price": st.column_config.NumberColumn(format="$%.2f", min_value=0),
-                        "Total": st.column_config.NumberColumn(format="$%.2f", min_value=0),
-                    }
+                        "Qty": st.column_config.NumberColumn(min_value=1, max_value=100, step=1),
+                        "Unit Price": st.column_config.NumberColumn(format="$%.2f", min_value=0.01, step=0.01),
+                        "Total": st.column_config.NumberColumn(format="$%.2f"),
+                    },
+                    key="receipt_editor"
                 )
+                
+                # Check if Qty or Unit Price changed - if so, recalculate Total
+                needs_recalc = False
+                for i, row in edited_df.iterrows():
+                    expected_total = round(row["Qty"] * row["Unit Price"], 2)
+                    if abs(row["Total"] - expected_total) > 0.001:
+                        needs_recalc = True
+                        break
+                
+                if needs_recalc:
+                    # Recalculate and update session state
+                    edited_df["Total"] = (edited_df["Qty"] * edited_df["Unit Price"]).round(2)
+                    updated_items = []
+                    for _, row in edited_df.iterrows():
+                        updated_items.append({
+                            "name": row["Item Name"],
+                            "quantity": int(row["Qty"]) if pd.notna(row["Qty"]) else 1,
+                            "unit_price": float(row["Unit Price"]) if pd.notna(row["Unit Price"]) else 0,
+                            "total_price": float(row["Total"]) if pd.notna(row["Total"]) else 0,
+                        })
+                    st.session_state["scanned_items"] = updated_items
+                    # Clear the editor key to force refresh with new data
+                    if "receipt_editor" in st.session_state:
+                        del st.session_state["receipt_editor"]
+                    st.rerun()
                 
                 total = edited_df["Total"].sum()
                 st.metric("Receipt Total", f"${total:.2f}")
@@ -786,7 +817,10 @@ with tab5:
                             for err in result["errors"]:
                                 st.text(f"  ⚠️ {err}")
                         else:
-                            st.success(f"✅ Saved {result['inserted']} items to inventory!")
+                            st.success(f"✅ Saved {result["inserted"]} items to inventory!")
+                            # Clear caches so inventory and velocity refresh
+                            load_inventory_data.clear()
+                            get_velocity_data.clear()
                             st.balloons()
                             del st.session_state["scanned_items"]
                             st.rerun()

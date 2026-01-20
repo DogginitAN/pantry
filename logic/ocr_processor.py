@@ -1,203 +1,236 @@
 #!/usr/bin/env python3
 """
-Receipt OCR Processor using BakLLaVA (local vision LLM)
-Extracts structured grocery data from receipt images AND web screenshots.
+Receipt OCR Processor using EasyOCR (traditional OCR) + regex parsing.
+No AI hallucinations - just reads what is actually in the image.
 """
 
-import requests
-import base64
-import json
-from typing import Optional
+import re
+import io
+import numpy as np
+import easyocr
+from PIL import Image
+from typing import Optional, List, Dict
 
 
 class ReceiptOCR:
-    """Process receipt images using local BakLLaVA model via Ollama."""
+    """Process receipt images using EasyOCR + regex parsing."""
     
-    def __init__(self, ollama_host: str = "http://localhost:11434"):
-        self.ollama_host = ollama_host
-        self.model = "bakllava"
+    def __init__(self):
+        self._reader = None
     
-    def _encode_image(self, image_path: str) -> str:
-        """Convert image file to base64."""
-        with open(image_path, "rb") as f:
-            return base64.b64encode(f.read()).decode("utf-8")
+    @property
+    def reader(self):
+        """Lazy load EasyOCR reader."""
+        if self._reader is None:
+            self._reader = easyocr.Reader(["en"], gpu=False)
+        return self._reader
     
-    def _encode_image_bytes(self, image_bytes: bytes) -> str:
-        """Convert image bytes to base64."""
-        return base64.b64encode(image_bytes).decode("utf-8")
+    def _load_image(self, image_path: Optional[str] = None, image_bytes: Optional[bytes] = None) -> np.ndarray:
+        """Load image and convert to numpy array for EasyOCR."""
+        if image_path:
+            image = Image.open(image_path)
+        elif image_bytes:
+            image = Image.open(io.BytesIO(image_bytes))
+        else:
+            raise ValueError("Must provide either image_path or image_bytes")
+        
+        if image.mode != 'RGB':
+            image = image.convert('RGB')
+        
+        return np.array(image)
     
     def extract_text(self, image_path: Optional[str] = None, image_bytes: Optional[bytes] = None) -> str:
-        """
-        Extract raw text from a receipt image.
-        
-        Args:
-            image_path: Path to image file
-            image_bytes: Raw image bytes (for uploaded files)
-            
-        Returns:
-            Extracted text from the receipt
-        """
-        if image_path:
-            image_b64 = self._encode_image(image_path)
-        elif image_bytes:
-            image_b64 = self._encode_image_bytes(image_bytes)
-        else:
-            raise ValueError("Must provide either image_path or image_bytes")
-        
-        prompt = """You are an expert at reading grocery orders. This image could be:
-1. A paper receipt (printed text, possibly damaged or wet)
-2. A screenshot of an online order (web UI, app, or email confirmation)
-
-Extract ALL grocery items from this image. For EACH item, identify:
-- Product name
-- Quantity (look for "Quantity:", "Qty:", "x", or number before item)
-- Price (usually on the right side, with $ symbol)
-
-Output each item on its own line in this format:
-ITEM: [product name] | QTY: [number] | PRICE: [dollar amount]
-
-Example outputs:
-ITEM: Eggs, Large, Non-GMO, Pasture Raised | QTY: 2 | PRICE: $9.98
-ITEM: Organic Bananas | QTY: 1 | PRICE: $2.49
-
-Be thorough - extract EVERY product. Skip headers, tabs, delivery info, subtotals, taxes, and fees."""
-        
-        payload = {
-            "model": self.model,
-            "prompt": prompt,
-            "images": [image_b64],
-            "stream": False
-        }
-        
-        response = requests.post(
-            f"{self.ollama_host}/api/generate",
-            json=payload,
-            timeout=120
-        )
-        response.raise_for_status()
-        
-        return response.json().get("response", "")
+        """Extract raw text from image using EasyOCR."""
+        img_array = self._load_image(image_path, image_bytes)
+        results = self.reader.readtext(img_array)
+        results_sorted = sorted(results, key=lambda x: (x[0][0][1], x[0][0][0]))
+        lines = [r[1] for r in results_sorted]
+        return "\n".join(lines)
     
-    def parse_items(self, image_path: Optional[str] = None, image_bytes: Optional[bytes] = None) -> list:
-        """
-        Extract structured item data from a receipt image.
+    def extract_with_debug(self, image_path: Optional[str] = None, image_bytes: Optional[bytes] = None) -> str:
+        """Extract text with position info for debugging."""
+        img_array = self._load_image(image_path, image_bytes)
+        results = self.reader.readtext(img_array)
+        results_sorted = sorted(results, key=lambda x: (x[0][0][1], x[0][0][0]))
         
-        Returns:
-            List of dicts with keys: name, quantity, price, original_line
-        """
-        if image_path:
-            image_b64 = self._encode_image(image_path)
-        elif image_bytes:
-            image_b64 = self._encode_image_bytes(image_bytes)
-        else:
-            raise ValueError("Must provide either image_path or image_bytes")
+        debug_lines = [f"Image: {img_array.shape[1]}w x {img_array.shape[0]}h", ""]
+        for bbox, text, conf in results_sorted:
+            y, x = int(bbox[0][1]), int(bbox[0][0])
+            debug_lines.append(f"Y={y:4d} X={x:4d}: '{text}' ({conf:.2f})")
         
-        prompt = """You are an expert at extracting grocery items from images. This could be:
-- A paper receipt (printed, possibly damaged or wet)
-- A screenshot of a web order (like Instacart, farm co-op, grocery delivery app)
-- An email order confirmation
+        return "\n".join(debug_lines)
 
-TASK: Find every grocery item and output as JSON.
-
-Look for these patterns in the image:
-- Web/app screenshots: Item name with small product image, quantity shown as "Quantity: 2" below it, price on the right
-- Paper receipts: Item name followed by price, quantity might show as "2 x $4.99"
-- Unit info in brackets like [dozen], [lb], [oz], [each], [3 count] - just extract the main quantity number
-
-For EACH product found, output one JSON object per line:
-{"name": "Eggs, Large, Non-GMO, Pasture Raised", "quantity": 2, "unit_price": 4.99, "total_price": 9.98}
-{"name": "Apple, Pink Lady", "quantity": 1, "unit_price": 3.49, "total_price": 3.49}
-{"name": "Cheddar Cheese Spread - Local", "quantity": 1, "unit_price": 6.99, "total_price": 6.99}
-
-Rules:
-- Output ONLY valid JSON objects, one item per line
-- "quantity" must be a number (extract from "Quantity: 2" or "2 x" patterns)
-- "unit_price" = total_price / quantity (calculate it)
-- "total_price" is the price shown for that line item
-- SKIP: navigation tabs, headers, delivery dates/times, subtotals, taxes, tips, fees
-- INCLUDE: ALL actual food and grocery products visible in the image
-
-Extract all items now:"""
+    def parse_items(self, image_path: Optional[str] = None, image_bytes: Optional[bytes] = None) -> List[Dict]:
+        """Extract structured item data from a receipt image."""
+        img_array = self._load_image(image_path, image_bytes)
+        results = self.reader.readtext(img_array)
         
-        payload = {
-            "model": self.model,
-            "prompt": prompt,
-            "images": [image_b64],
-            "stream": False
-        }
+        if not results:
+            return []
         
-        response = requests.post(
-            f"{self.ollama_host}/api/generate",
-            json=payload,
-            timeout=120
-        )
-        response.raise_for_status()
+        img_width = img_array.shape[1]
+        price_x_threshold = img_width * 0.85  # Prices are in rightmost 15%
         
-        raw_response = response.json().get("response", "")
-        
-        # Parse JSON objects from response
         items = []
-        for line in raw_response.strip().split("\n"):
-            line = line.strip()
-            if not line or not line.startswith("{"):
+        skip_keywords = ["order", "current", "all orders", "buy again", "delivery", 
+                        "estimated", "subtotal", "total", "tax", "tip", "fee", 
+                        "build", "items in", "receipt", "item name", "unit price",
+                        "locked", "january", "february", "march", "april", "may",
+                        "june", "july", "august", "september", "october", "november", "december"]
+        
+        # Sort all results by Y position
+        results_sorted = sorted(results, key=lambda x: x[0][0][1])
+        
+        # Process results - find product lines (have a price on the right)
+        i = 0
+        while i < len(results_sorted):
+            bbox, text, conf = results_sorted[i]
+            y_pos = bbox[0][1]
+            x_pos = bbox[0][0]
+            
+            # Skip if this is a navigation/header element
+            if any(kw in text.lower() for kw in skip_keywords):
+                i += 1
                 continue
-            try:
-                item = json.loads(line)
-                # Validate required fields
-                if "name" in item:
-                    items.append({
-                        "name": str(item.get("name", "")),
-                        "quantity": int(item.get("quantity", 1)),
-                        "unit_price": float(item.get("unit_price", 0)),
-                        "total_price": float(item.get("total_price", item.get("unit_price", 0))),
-                        "original_line": line
-                    })
-            except (json.JSONDecodeError, ValueError):
+            
+            # Skip "Quantity:" lines - we'll read them when processing product lines
+            if text.lower().startswith("quantity"):
+                i += 1
                 continue
+            
+            # Skip unit descriptors in brackets
+            if text.startswith("[") or text.startswith("("):
+                i += 1
+                continue
+            
+            # Collect all elements on the same Y level (within 15 pixels)
+            row_elements = []
+            j = i
+            while j < len(results_sorted):
+                other_bbox, other_text, other_conf = results_sorted[j]
+                other_y = other_bbox[0][1]
+                if abs(other_y - y_pos) < 15:
+                    row_elements.append((other_bbox, other_text, other_conf))
+                    j += 1
+                elif other_y > y_pos + 15:
+                    break
+                else:
+                    j += 1
+            
+            # Check if this row has a price (rightmost element looks like a price)
+            price = None
+            name_parts = []
+            
+            for el_bbox, el_text, el_conf in row_elements:
+                el_x = el_bbox[0][0]
+                
+                # Is this in the price column (rightmost)?
+                if el_x > price_x_threshold:
+                    price = self._extract_price(el_text)
+                else:
+                    # Skip quantity/unit markers
+                    if not el_text.lower().startswith("quantity") and not el_text.startswith("["):
+                        name_parts.append(el_text)
+            
+            # If we found a price, this is a product row
+            if price is not None and name_parts:
+                name = " ".join(name_parts)
+                name = re.sub(r'\s*;\s*', ', ', name)  # Semicolons to commas
+                name = re.sub(r'\s+', ' ', name).strip()
+                
+                # Look for quantity in the next few lines
+                quantity = 1
+                for k in range(j, min(j + 3, len(results_sorted))):
+                    _, next_text, _ = results_sorted[k]
+                    qty_match = re.search(r'quantity[:\s]*(\d+)', next_text, re.IGNORECASE)
+                    if qty_match:
+                        quantity = int(qty_match.group(1))
+                        break
+                    # Also check for standalone quantity number
+                    if re.match(r'^[1-9]$', next_text.strip()):
+                        quantity = int(next_text.strip())
+                        break
+                
+                unit_price = round(price / quantity, 2) if quantity > 0 else price
+                
+                items.append({
+                    "name": name,
+                    "quantity": quantity,
+                    "unit_price": unit_price,
+                    "total_price": price,
+                })
+            
+            i = j if j > i else i + 1
         
         return items
+
+    def _extract_price(self, text: str) -> Optional[float]:
+        """Extract price from text, handling OCR errors like $ read as 5 or 8."""
+        text = text.strip()
+        
+        # Try standard price format first: $X.XX
+        match = re.match(r'^\$(\d{1,2}\.\d{2})$', text)
+        if match:
+            return float(match.group(1))
+        
+        # Handle S instead of $ (OCR error)
+        match = re.match(r'^S(\d{1,2}\.\d{2})$', text)
+        if match:
+            return float(match.group(1))
+        
+        # Handle corrupted $ sign read as leading digit
+        # Pattern: XX.XX where first digit might be corrupted $
+        match = re.match(r'^(\d)(\d{1,2}\.\d{2})$', text)
+        if match:
+            first_digit = match.group(1)
+            rest = match.group(2)
+            full_price = float(text)
+            clean_price = float(rest)
+            
+            # If the full price seems unreasonably high (> $20 for groceries)
+            # and the clean price is reasonable, use the clean price
+            # Common corruptions: $ -> 5, $ -> 8
+            if full_price > 20 and clean_price < 20:
+                return clean_price
+            
+            # If both are reasonable, prefer the full price
+            return full_price
+        
+        # Try just X.XX format (no $ sign at all)
+        match = re.match(r'^(\d{1,2}\.\d{2})$', text)
+        if match:
+            return float(match.group(1))
+        
+        return None
+    
+    def _group_into_rows(self, results, y_threshold=12) -> List[List]:
+        """Group OCR results into rows based on Y position."""
+        if not results:
+            return []
+        
+        sorted_results = sorted(results, key=lambda x: x[0][0][1])
+        rows = []
+        current_row = [sorted_results[0]]
+        current_y = sorted_results[0][0][0][1]
+        
+        for result in sorted_results[1:]:
+            y = result[0][0][1]
+            if abs(y - current_y) < y_threshold:
+                current_row.append(result)
+            else:
+                current_row.sort(key=lambda x: x[0][0][0])
+                rows.append(current_row)
+                current_row = [result]
+                current_y = y
+        
+        current_row.sort(key=lambda x: x[0][0][0])
+        rows.append(current_row)
+        return rows
     
     def health_check(self) -> dict:
-        """Check if BakLLaVA model is available and responding."""
+        """Check if EasyOCR is available."""
         try:
-            response = requests.get(f"{self.ollama_host}/api/tags", timeout=5)
-            response.raise_for_status()
-            models = response.json().get("models", [])
-            bakllava_found = any(m.get("name", "").startswith("bakllava") for m in models)
-            return {
-                "status": "healthy" if bakllava_found else "model_missing",
-                "bakllava_available": bakllava_found,
-                "ollama_running": True,
-                "models": [m.get("name") for m in models]
-            }
-        except requests.exceptions.RequestException as e:
-            return {
-                "status": "unhealthy",
-                "bakllava_available": False,
-                "ollama_running": False,
-                "error": str(e)
-            }
-
-
-# CLI testing
-if __name__ == "__main__":
-    import sys
-    
-    ocr = ReceiptOCR()
-    
-    # Health check
-    health = ocr.health_check()
-    print(f"Health: {health}")
-    
-    if len(sys.argv) > 1:
-        image_path = sys.argv[1]
-        print(f"\nProcessing: {image_path}")
-        
-        print("\n--- Raw Text ---")
-        text = ocr.extract_text(image_path=image_path)
-        print(text)
-        
-        print("\n--- Parsed Items ---")
-        items = ocr.parse_items(image_path=image_path)
-        for item in items:
-            print(f"  {item['quantity']}x {item['name']} @ ${item['unit_price']:.2f} = ${item['total_price']:.2f}")
+            _ = self.reader
+            return {"status": "healthy", "ocr_available": True, "engine": "EasyOCR"}
+        except Exception as e:
+            return {"status": "unhealthy", "ocr_available": False, "error": str(e)}
