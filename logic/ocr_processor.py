@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Receipt OCR Processor using BakLLaVA (local vision LLM)
-Extracts structured grocery data from receipt images.
+Extracts structured grocery data from receipt images AND web screenshots.
 """
 
 import requests
@@ -44,16 +44,23 @@ class ReceiptOCR:
         else:
             raise ValueError("Must provide either image_path or image_bytes")
         
-        prompt = """You are an expert receipt reader. Extract ALL text from this grocery receipt image.
-Include:
-- Store name
-- Date
-- Every item name exactly as printed
-- Quantities (look for 'x' or 'qty')
-- Prices (individual and totals)
-- Any discounts or savings
+        prompt = """You are an expert at reading grocery orders. This image could be:
+1. A paper receipt (printed text, possibly damaged or wet)
+2. A screenshot of an online order (web UI, app, or email confirmation)
 
-Output the text line by line as it appears on the receipt. Be thorough - don't miss any items."""
+Extract ALL grocery items from this image. For EACH item, identify:
+- Product name
+- Quantity (look for "Quantity:", "Qty:", "x", or number before item)
+- Price (usually on the right side, with $ symbol)
+
+Output each item on its own line in this format:
+ITEM: [product name] | QTY: [number] | PRICE: [dollar amount]
+
+Example outputs:
+ITEM: Eggs, Large, Non-GMO, Pasture Raised | QTY: 2 | PRICE: $9.98
+ITEM: Organic Bananas | QTY: 1 | PRICE: $2.49
+
+Be thorough - extract EVERY product. Skip headers, tabs, delivery info, subtotals, taxes, and fees."""
         
         payload = {
             "model": self.model,
@@ -85,20 +92,32 @@ Output the text line by line as it appears on the receipt. Be thorough - don't m
         else:
             raise ValueError("Must provide either image_path or image_bytes")
         
-        prompt = """Analyze this grocery receipt image and extract each purchased item.
+        prompt = """You are an expert at extracting grocery items from images. This could be:
+- A paper receipt (printed, possibly damaged or wet)
+- A screenshot of a web order (like Instacart, farm co-op, grocery delivery app)
+- An email order confirmation
 
-For EACH item, output a JSON object on its own line with these fields:
-- "name": product name exactly as shown
-- "quantity": number of units (default 1 if not shown)
-- "unit_price": price per unit in dollars (number only, no $)
-- "total_price": total price for this line item
+TASK: Find every grocery item and output as JSON.
 
-Output ONLY valid JSON objects, one per line. Example:
-{"name": "Organic Bananas", "quantity": 2, "unit_price": 1.49, "total_price": 2.98}
-{"name": "Whole Milk 1 Gallon", "quantity": 1, "unit_price": 4.99, "total_price": 4.99}
+Look for these patterns in the image:
+- Web/app screenshots: Item name with small product image, quantity shown as "Quantity: 2" below it, price on the right
+- Paper receipts: Item name followed by price, quantity might show as "2 x $4.99"
+- Unit info in brackets like [dozen], [lb], [oz], [each], [3 count] - just extract the main quantity number
 
-Skip subtotals, taxes, tips, fees, and delivery charges - only include actual products.
-Be thorough and extract EVERY product line item."""
+For EACH product found, output one JSON object per line:
+{"name": "Eggs, Large, Non-GMO, Pasture Raised", "quantity": 2, "unit_price": 4.99, "total_price": 9.98}
+{"name": "Apple, Pink Lady", "quantity": 1, "unit_price": 3.49, "total_price": 3.49}
+{"name": "Cheddar Cheese Spread - Local", "quantity": 1, "unit_price": 6.99, "total_price": 6.99}
+
+Rules:
+- Output ONLY valid JSON objects, one item per line
+- "quantity" must be a number (extract from "Quantity: 2" or "2 x" patterns)
+- "unit_price" = total_price / quantity (calculate it)
+- "total_price" is the price shown for that line item
+- SKIP: navigation tabs, headers, delivery dates/times, subtotals, taxes, tips, fees
+- INCLUDE: ALL actual food and grocery products visible in the image
+
+Extract all items now:"""
         
         payload = {
             "model": self.model,
