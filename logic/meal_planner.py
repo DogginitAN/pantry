@@ -28,45 +28,47 @@ llm_client = openai.OpenAI(
     api_key=os.getenv("LITELLM_API_KEY")
 )
 
-# Category-specific thresholds (same as dashboard)
-# Multiplier on avg_interval_days to determine when item is "overdue"
-CATEGORY_THRESHOLDS = {
-    'Produce': 0.8,      # Fresh items - consider out of stock early
-    'Dairy': 0.9,        # Moderate buffer
-    'Meat': 0.85,        # Perishable
-    'Frozen': 1.1,       # Can last longer
-    'Pantry': 1.2,       # Shelf-stable - relaxed threshold
-    'Household': 1.5,    # Non-perishables - very relaxed
-}
-DEFAULT_THRESHOLD = 1.0
+# =============================================================================
+# MEAL PLANNER SHELF LIFE SETTINGS
+# These are MORE GENEROUS than dashboard thresholds because for meal planning
+# we want to include anything the user likely still has available to cook with.
+# The dashboard uses stricter thresholds for reorder suggestions.
+# =============================================================================
 
-# Default shelf life in days for items with insufficient purchase history
-# Used when we have < 3 purchases and can't calculate velocity
+# For items with 3+ purchases, multiply avg_interval by this threshold
+CATEGORY_THRESHOLDS = {
+    'Produce': 1.2,      # Produce can last a bit beyond typical buy cycle
+    'Dairy': 1.5,        # Cheese, butter last longer than milk
+    'Meat': 1.5,         # Includes bacon, deli meats that last longer
+    'Frozen': 2.0,       # Frozen items last very long
+    'Pantry': 2.0,       # Shelf-stable - very relaxed
+    'Household': 3.0,    # Non-perishables
+}
+DEFAULT_THRESHOLD = 1.5
+
+# Default shelf life in days for items with < 3 purchases
+# These are REALISTIC shelf lives for meal planning purposes
 CATEGORY_DEFAULT_SHELF_LIFE = {
-    'Produce': 14,       # Fresh produce ~2 weeks
-    'Dairy': 21,         # Dairy ~3 weeks
-    'Meat': 7,           # Fresh meat ~1 week (unless frozen)
+    'Produce': 21,       # Most produce ~3 weeks if stored properly
+    'Dairy': 45,         # Cheese 4-6 weeks, butter longer, milk shorter
+    'Meat': 30,          # Includes cured meats, bacon, deli - fresh meat would be frozen
     'Frozen': 180,       # Frozen items ~6 months
     'Pantry': 365,       # Pantry staples ~1 year
     'Household': 365,    # Household items ~1 year
 }
-DEFAULT_SHELF_LIFE = 30
+DEFAULT_SHELF_LIFE = 60  # Default to 2 months
 
 
 def get_current_inventory():
     """
-    Get list of products user likely has in stock.
+    Get list of products user likely has in stock for meal planning.
     
-    Uses velocity-based logic matching the dashboard:
-    - Items with 3+ purchases: Use calculated avg_interval with category threshold
-    - Items with < 3 purchases: Use category-based default shelf life
-    
-    An item is "in stock" if days_since_last <= effective_shelf_life
+    Uses generous thresholds since we want to include anything the user
+    might still have available to cook with, not just items that are "fresh".
     """
     conn = psycopg2.connect(**DB_PARAMS)
     cursor = conn.cursor()
     
-    # Get ALL products with purchase history (no 30-day filter!)
     query = """
     WITH purchase_metrics AS (
         SELECT 
@@ -88,7 +90,7 @@ def get_current_inventory():
         CASE 
             WHEN buy_count >= 3 THEN
                 ROUND((last_purchase::date - first_purchase::date)::numeric / (buy_count - 1), 1)
-            ELSE NULL  -- Will use default shelf life
+            ELSE NULL
         END as avg_interval_days,
         CURRENT_DATE - last_purchase::date as days_since_last
     FROM purchase_metrics
@@ -107,7 +109,7 @@ def get_current_inventory():
         'Pantry': [],
         'Frozen': [],
         'Household': [],
-        'Other': []  # For uncategorized items
+        'Other': []
     }
     
     for name, category, last_purchase, buy_count, avg_interval, days_since in results:
@@ -116,11 +118,9 @@ def get_current_inventory():
         
         # Determine effective shelf life
         if avg_interval is not None and buy_count >= 3:
-            # Use velocity-based calculation with category threshold
             threshold = CATEGORY_THRESHOLDS.get(category, DEFAULT_THRESHOLD)
             effective_shelf_life = float(avg_interval) * threshold
         else:
-            # Use category default for items without enough history
             effective_shelf_life = CATEGORY_DEFAULT_SHELF_LIFE.get(category, DEFAULT_SHELF_LIFE)
         
         # Item is "in stock" if not past its effective shelf life
@@ -141,7 +141,6 @@ def get_purchase_history_patterns():
     conn = psycopg2.connect(**DB_PARAMS)
     cursor = conn.cursor()
     
-    # Get frequently bought together items (simple version)
     query = """
     SELECT p.canonical_name, COUNT(*) as frequency
     FROM purchases pur
@@ -162,12 +161,6 @@ def get_purchase_history_patterns():
 def suggest_meals(inventory, favorites, dietary_prefs=None, num_suggestions=5):
     """
     Use LLM to suggest meals based on current inventory.
-    
-    Args:
-        inventory: Dict of available ingredients by category
-        favorites: List of frequently purchased items
-        dietary_prefs: Optional dietary restrictions
-        num_suggestions: Number of meal ideas to generate
     """
     # Format inventory for prompt
     inventory_text = ""
@@ -175,7 +168,7 @@ def suggest_meals(inventory, favorites, dietary_prefs=None, num_suggestions=5):
         if items:
             inventory_text += f"\n{category}: {', '.join(items)}"
     
-    favorites_text = ", ".join(favorites[:20])  # Top 20
+    favorites_text = ", ".join(favorites[:20])
     
     system_prompt = """You are a meal planning assistant. Suggest practical, delicious meals 
 based on what the user already has in their pantry. Focus on:
@@ -225,7 +218,6 @@ Return as JSON array:
         
         content = response.choices[0].message.content
         
-        # Strip markdown if present
         import re
         content = re.sub(r'```json\s*', '', content)
         content = re.sub(r'```\s*$', '', content)
@@ -277,7 +269,6 @@ if __name__ == "__main__":
     total_items = sum(len(items) for items in inventory.values())
     print(f"   Found {total_items} items currently in stock")
     
-    # Show breakdown by category
     for category, items in inventory.items():
         if items:
             print(f"   - {category}: {len(items)} items")
@@ -286,7 +277,6 @@ if __name__ == "__main__":
     favorites = get_purchase_history_patterns()
     print(f"   Identified {len(favorites)} frequently purchased items")
     
-    # Get dietary preferences from command line
     dietary_prefs = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else None
     if dietary_prefs:
         print(f"\n🥗 Dietary preferences: {dietary_prefs}")
