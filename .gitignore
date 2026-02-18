@@ -65,3 +65,5 @@ ingest/debug_*.html
 .clinerules
 dashboard/*.png
 dashboard/*.png
+LEARNINGS.md
+*.pyc
