@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 
-const BASE_URL = "http://localhost:8060/api";
+import { getInventory } from "@/lib/api";
 
 interface InventoryItem {
   id: number;
@@ -152,12 +152,8 @@ export default function InventoryPage() {
   const [bulkActionFeedback, setBulkActionFeedback] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`${BASE_URL}/inventory`)
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then((data: InventoryItem[]) => setItems(data))
+    getInventory()
+      .then((data) => setItems(data as InventoryItem[]))
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
@@ -205,6 +201,7 @@ export default function InventoryPage() {
     }
   }
 
+  // TODO: Wire to backend API once consumed/wasted endpoints exist (Phase 2)
   function handleBulkAction(action: "consumed" | "wasted") {
     const count = selectedIds.size;
     if (count === 0) return;
@@ -340,9 +337,8 @@ export default function InventoryPage() {
                 </tr>
               )
               : filtered.map((item) => (
-                  <>
+                  <React.Fragment key={item.id}>
                     <tr
-                      key={item.id}
                       onClick={() =>
                         setExpandedId((prev) => (prev === item.id ? null : item.id))
                       }
@@ -405,13 +401,12 @@ export default function InventoryPage() {
 
                     {expandedId === item.id && (
                       <ExpandedRow
-                        key={`${item.id}-expanded`}
                         item={item}
                         selected={selectedIds.has(item.id)}
                         onToggleSelect={toggleSelect}
                       />
                     )}
-                  </>
+                  </React.Fragment>
                 ))}
           </tbody>
         </table>

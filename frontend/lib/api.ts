@@ -1,4 +1,4 @@
-const BASE_URL = "http://localhost:8060/api";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8060/api";
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
@@ -11,18 +11,13 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-// Inventory
+// Inventory (velocity-based)
 export function getInventory() {
   return apiFetch<unknown[]>("/inventory");
 }
 
-export function getInventoryItem(id: number) {
-  return apiFetch<unknown>(`/inventory/${id}`);
-}
-
-// Velocity / reorder predictions
-export function getVelocity() {
-  return apiFetch<unknown[]>("/inventory/velocity");
+export function getLowInventory() {
+  return apiFetch<unknown[]>("/inventory/low");
 }
 
 // Shopping list
@@ -45,8 +40,11 @@ export function checkShoppingListItem(itemId: number, checked: boolean) {
 }
 
 // Meal planner
-export function getMealSuggestions() {
-  return apiFetch<unknown[]>("/meals/suggest");
+export function suggestMeals(preferences?: string, count: number = 5) {
+  return apiFetch<{ suggestions: unknown[] }>("/meals/suggest", {
+    method: "POST",
+    body: JSON.stringify({ preferences, count }),
+  });
 }
 
 // Receipts
@@ -84,7 +82,7 @@ export function updateSetting(key: string, value: string) {
 
 // Classifier
 export function classifyItem(name: string) {
-  return apiFetch<unknown>("/classify", {
+  return apiFetch<{ canonical_name: string; category: string; consumption_profile: string }>("/classify", {
     method: "POST",
     body: JSON.stringify({ name }),
   });

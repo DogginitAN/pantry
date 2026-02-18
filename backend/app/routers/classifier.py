@@ -3,21 +3,27 @@ Classifier router: wrap logic/classifier.py as API endpoints.
 """
 import sys
 import os
+from typing import Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
+from sqlalchemy import text
+
+from app.database import get_db
 
 router = APIRouter(prefix="/api/classify", tags=["classifier"])
 
-_project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
+_project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
+
+from logic.classifier import classify_item as _llm_classify
 
 
 def _classify_item(raw_name: str) -> dict:
-    """Import and call logic.classifier.classify_item with project root on sys.path."""
-    if _project_root not in sys.path:
-        sys.path.insert(0, _project_root)
-    from logic.classifier import classify_item
-    return classify_item(raw_name)
+    """Call logic.classifier.classify_item."""
+    return _llm_classify(raw_name)
 
 
 # ---------- Pydantic models ----------
@@ -38,10 +44,12 @@ class BatchClassifyResult(BaseModel):
     canonical_name: str
     category: str
     consumption_profile: str
+    error: Optional[str] = None
 
 
 class BatchClassifyResponse(BaseModel):
     classified: int
+    failed: int
     results: list[BatchClassifyResult]
 
 
@@ -77,55 +85,41 @@ def classify_single(body: ClassifyRequest):
 
 
 @router.post("/batch", response_model=BatchClassifyResponse)
-def classify_batch():
-    """Classify all unclassified products in the database (canonical_name IS NULL or equals raw_name)."""
-    import psycopg2
+def classify_batch(db: Session = Depends(get_db)):
+    """Classify all unclassified products in the database."""
+    rows = db.execute(
+        text("SELECT id, raw_name FROM products WHERE canonical_name IS NULL OR canonical_name = raw_name")
+    ).fetchall()
 
-    db_params = {
-        "host": os.getenv("DB_HOST", "localhost"),
-        "user": os.getenv("DB_USER"),
-        "password": os.getenv("DB_PASSWORD"),
-        "database": "pantry_db",
-    }
+    results = []
+    classified = 0
+    failed = 0
 
-    conn = psycopg2.connect(**db_params)
-    cursor = conn.cursor()
-
-    try:
-        cursor.execute("""
-            SELECT id, raw_name
-            FROM products
-            WHERE canonical_name IS NULL OR canonical_name = raw_name
-        """)
-        rows = cursor.fetchall()
-
-        results = []
-        for product_id, raw_name in rows:
+    for product_id, raw_name in rows:
+        try:
             result = _classify_item(raw_name)
             canonical = result.get("clean_name") or raw_name
             category = result.get("category", "Unknown")
             profile = _profile_for_category(category)
 
-            cursor.execute("""
-                UPDATE products
-                SET canonical_name = %s, category = %s, consumption_profile = %s
-                WHERE id = %s
-            """, (canonical, category, profile, product_id))
+            db.execute(
+                text("UPDATE products SET canonical_name = :cn, category = :cat, consumption_profile = :cp WHERE id = :id"),
+                {"cn": canonical, "cat": category, "cp": profile, "id": product_id},
+            )
 
             results.append(BatchClassifyResult(
-                id=product_id,
-                raw_name=raw_name,
-                canonical_name=canonical,
-                category=category,
+                id=product_id, raw_name=raw_name,
+                canonical_name=canonical, category=category,
                 consumption_profile=profile,
             ))
+            classified += 1
+        except Exception as e:
+            results.append(BatchClassifyResult(
+                id=product_id, raw_name=raw_name,
+                canonical_name=raw_name, category="Unknown",
+                consumption_profile="pantry", error=str(e),
+            ))
+            failed += 1
 
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        cursor.close()
-        conn.close()
-
-    return BatchClassifyResponse(classified=len(results), results=results)
+    db.commit()
+    return BatchClassifyResponse(classified=classified, failed=failed, results=results)

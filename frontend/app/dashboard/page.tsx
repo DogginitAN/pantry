@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-
-const BASE_URL = "http://localhost:8060/api";
+import { getInventory } from "@/lib/api";
 
 interface InventoryItem {
   id: number;
@@ -20,18 +19,6 @@ interface Stats {
   stocked: number;
   low: number;
   out: number;
-}
-
-async function fetchInventory(): Promise<InventoryItem[]> {
-  const res = await fetch(`${BASE_URL}/inventory`);
-  if (!res.ok) throw new Error(`Inventory fetch failed: ${res.status}`);
-  return res.json();
-}
-
-async function fetchLowInventory(): Promise<InventoryItem[]> {
-  const res = await fetch(`${BASE_URL}/inventory/low`);
-  if (!res.ok) throw new Error(`Low inventory fetch failed: ${res.status}`);
-  return res.json();
 }
 
 function computeStats(items: InventoryItem[]): Stats {
@@ -117,34 +104,31 @@ function AlertCard({ item }: { item: InventoryItem }) {
 }
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState<Stats>({ total: 0, stocked: 0, low: 0, out: 0 });
-  const [lowItems, setLowItems] = useState<InventoryItem[]>([]);
+  const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([fetchInventory(), fetchLowInventory()])
-      .then(([all, low]) => {
-        setStats(computeStats(all));
-        setLowItems(low);
-      })
+    getInventory()
+      .then((data) => setItems(data as InventoryItem[]))
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
+
+  const stats = computeStats(items);
+  const lowItems = items.filter((i) => i.status === "low" || i.status === "out");
 
   return (
     <div className="max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold text-zinc-100 mb-1">Dashboard</h1>
       <p className="text-zinc-500 text-sm mb-8">Your pantry at a glance.</p>
 
-      {/* Error banner */}
       {error && (
         <div className="mb-6 bg-red-950 border border-red-800 text-red-300 text-sm rounded-lg px-4 py-3">
           Could not load inventory data: {error}
         </div>
       )}
 
-      {/* Stats row */}
       <section className="mb-8">
         <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">
           Inventory Summary
@@ -157,7 +141,6 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      {/* Running Low alerts */}
       <section className="mb-8">
         <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">
           Running Low Alerts
@@ -182,7 +165,6 @@ export default function DashboardPage() {
         )}
       </section>
 
-      {/* Spending overview (placeholder — no spending endpoint yet) */}
       <section className="mb-8">
         <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">
           Spending Overview
@@ -193,7 +175,6 @@ export default function DashboardPage() {
             <span className="text-xs text-zinc-600 italic">Spending analytics coming soon</span>
           </div>
           <div className="flex gap-6 items-end h-20">
-            {/* Simple placeholder bars */}
             <div className="flex flex-col items-center gap-1 flex-1">
               <div className="w-full bg-zinc-700 rounded-t" style={{ height: "48px" }} />
               <span className="text-xs text-zinc-500">Last month</span>
@@ -209,7 +190,6 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      {/* Quick actions */}
       <section>
         <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">
           Quick Actions
