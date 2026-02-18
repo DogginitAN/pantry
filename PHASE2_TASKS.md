@@ -12,19 +12,27 @@ Phase 2 builds the receipt processing pipeline: upload receipt image → AI extr
 - logic/ocr_processor.py exists but uses EasyOCR — we are replacing with AI Vision
 
 ## Task 1: Create receipt processing service
-**File:** backend/app/services/receipt_processor.py
+**Files:** backend/app/services/receipt_processor.py, backend/app/ai_router.py (update)
 
-Create a receipt processing service that:
-1. Takes an image (bytes) and calls the AI router for Vision OCR
-2. Add an `ocr_receipt(image_bytes)` method to AIRouter._OllamaProvider in ai_router.py that sends the image to an Ollama vision model (llama3.2-vision or similar) with a prompt to extract line items as JSON: [{name, quantity, unit_price, total_price}]
-3. The receipt_processor service should: receive image bytes, call ai_router.ocr_receipt(), parse the JSON response, return structured items with confidence scores
-4. Handle common OCR issues: strip store headers/footers, ignore subtotals/tax/tip lines, handle abbreviations
+Create a receipt processing service with dual AI provider support:
+
+1. Add an `ocr_receipt(image_bytes: bytes) -> dict` method to BOTH providers in ai_router.py:
+   - **_OllamaProvider:** Send image as base64 to Ollama vision model (llama3.2-vision:11b) via the OpenAI-compatible /v1/chat/completions endpoint with an image_url content block. Prompt it to extract line items as JSON.
+   - **_CloudProvider:** Send image as base64 to Claude Haiku (claude-3-5-haiku-20241022) via the Anthropic API with an image content block. Same extraction prompt. Use the ANTHROPIC_API_KEY from environment.
+2. Add the method to the AIRouter class so it delegates to whichever provider is configured.
+3. Create receipt_processor.py service that: receives image bytes, calls ai_router.ocr_receipt(), parses the JSON response, returns structured items with confidence scores.
+4. The extraction prompt should ask the model to return JSON: {store_name, items: [{name, quantity, unit_price, total_price}]}. Instruct it to ignore subtotals, tax, tips, fees, and store headers. Only return actual purchased items.
+5. Handle JSON parsing failures gracefully (strip markdown fences, retry with simpler prompt if needed).
+
+**Note:** llama3.2-vision:11b may not be pulled on Ollama yet. The code should work regardless — if the model isnt available, the Ollama call will fail gracefully and the error surfaces to the user. Do NOT attempt to pull models in code.
 
 **Acceptance criteria:**
-- receipt_processor.py exists with a `process_receipt(image_bytes: bytes, ai_provider: str = "ollama") -> dict` function
+- receipt_processor.py exists with `process_receipt(image_bytes: bytes) -> dict`
 - Returns: {items: [{name, quantity, unit_price, total_price, confidence}], raw_text: str, store_name: str|None}
-- ai_router.py has ocr_receipt method on _OllamaProvider
+- ai_router.py has ocr_receipt on both _OllamaProvider and _CloudProvider
+- AIRouter.ocr_receipt() delegates to the configured provider
 - python3 -m py_compile backend/app/services/receipt_processor.py
+- python3 -m py_compile backend/app/ai_router.py
 
 ## Task 2: Create receipt API endpoints
 **File:** backend/app/routers/receipts.py
