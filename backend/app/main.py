@@ -4,7 +4,7 @@ Pantry FastAPI application entry point.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import inventory
+from app.routers import inventory, meals
 
 app = FastAPI(title="Project Pantry API", version="0.1.0")
 
@@ -17,6 +17,7 @@ app.add_middleware(
 )
 
 app.include_router(inventory.router)
+app.include_router(meals.router)
 
 
 @app.get("/health")
