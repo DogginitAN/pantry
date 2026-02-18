@@ -5,7 +5,7 @@ load_dotenv()
 #!/usr/bin/env python3
 """
 Pantry Taxonomist - Local LLM Classification Layer
-Uses gpt-oss:20b via LiteLLM gateway to classify grocery items.
+Uses qwen2.5:3b via Ollama directly for grocery item classification.
 """
 
 import openai
@@ -13,13 +13,13 @@ import psycopg2
 import json
 import re
 
-# LiteLLM Gateway configuration
-import os
-
+# Ollama direct connection (no LiteLLM proxy needed)
 client = openai.OpenAI(
-    base_url="http://localhost:4000/v1",
-    api_key=os.getenv("LITELLM_API_KEY")
+    base_url="http://localhost:11434/v1",
+    api_key="ollama"
 )
+
+MODEL = "qwen2.5:3b"
 
 # Database configuration
 DB_PARAMS = {
@@ -38,7 +38,6 @@ Item: {raw_name}"""
 
 def strip_markdown_json(text: str) -> str:
     """Remove markdown code blocks if present."""
-    # Handle ```json ... ``` or ``` ... ```
     pattern = r"```(?:json)?\s*([\s\S]*?)\s*```"
     match = re.search(pattern, text)
     if match:
@@ -49,12 +48,12 @@ def strip_markdown_json(text: str) -> str:
 def classify_item(raw_name: str) -> dict:
     """Call local LLM to classify a grocery item."""
     response = client.chat.completions.create(
-        model="ollama/gpt-oss:20b",
+        model=MODEL,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": USER_PROMPT_TEMPLATE.format(raw_name=raw_name)}
         ],
-        temperature=0.1  # Low temperature for consistent output
+        temperature=0.1
     )
 
     content = response.choices[0].message.content
@@ -69,14 +68,13 @@ def classify_item(raw_name: str) -> dict:
 
 
 def main():
-    print("Pantry Taxonomist - Starting classification...")
+    print(f"Pantry Taxonomist - Using {MODEL} via Ollama")
     print("-" * 50)
 
     conn = psycopg2.connect(**DB_PARAMS)
     cursor = conn.cursor()
 
     try:
-        # Get unclassified products
         cursor.execute("""
             SELECT id, raw_name
             FROM products
@@ -93,12 +91,10 @@ def main():
         for product_id, raw_name in products:
             print(f"Processing: {raw_name}")
 
-            # Classify using local LLM
             result = classify_item(raw_name)
             clean_name = result.get("clean_name", raw_name)
             category = result.get("category", "Unknown")
 
-            # Update database
             cursor.execute("""
                 UPDATE products
                 SET canonical_name = %s, category = %s
