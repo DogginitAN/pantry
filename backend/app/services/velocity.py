@@ -71,13 +71,14 @@ WITH metrics AS (
         p.raw_name,
         p.category,
         p.inventory_status,
+        p.consumption_profile,
         MAX(pur.purchase_date)  AS last_purchased,
         COUNT(pur.id)           AS buy_count,
         MIN(pur.purchase_date)  AS first_purchased,
         CURRENT_DATE - MAX(pur.purchase_date)::date AS days_since_last
     FROM products p
     LEFT JOIN purchases pur ON pur.product_id = p.id
-    GROUP BY p.id, p.canonical_name, p.raw_name, p.category, p.inventory_status
+    GROUP BY p.id, p.canonical_name, p.raw_name, p.category, p.inventory_status, p.consumption_profile
 )
 SELECT
     id,
@@ -85,6 +86,7 @@ SELECT
     raw_name,
     category,
     inventory_status,
+    consumption_profile,
     last_purchased,
     buy_count,
     days_since_last,
@@ -127,11 +129,17 @@ def get_all_products_velocity(db: Session) -> list[dict]:
         last_purchased = row['last_purchased']
         avg_interval = float(row['avg_interval_days']) if row['avg_interval_days'] is not None else None
 
+        lp = last_purchased
+        if isinstance(lp, datetime):
+            lp = lp.date()
+
         results.append({
             'id': row['id'],
             'name': row['canonical_name'] or row['raw_name'],
             'category': row['category'],
+            'consumption_profile': row['consumption_profile'],
             'status': status,
+            'last_purchased': lp.isoformat() if lp else None,
             'days_since_last_purchase': int(row['days_since_last']) if row['days_since_last'] is not None else None,
             'avg_interval_days': avg_interval,
             'predicted_out_date': _compute_predicted_out_date(
