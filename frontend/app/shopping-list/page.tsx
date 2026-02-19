@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
+import { ShoppingCart, Trash2 } from "lucide-react";
 import {
   getShoppingLists,
   getShoppingList,
@@ -46,7 +47,7 @@ export default function ShoppingListPage() {
   const [addName, setAddName] = useState("");
   const [addQty, setAddQty] = useState(1);
   const [adding, setAdding] = useState(false);
-  const [copyLabel, setCopyLabel] = useState("Copy List");
+  const [copyLabel, setCopyLabel] = useState("Share List");
   const [error, setError] = useState<string | null>(null);
   const newListInputRef = useRef<HTMLInputElement>(null);
 
@@ -176,12 +177,18 @@ export default function ShoppingListPage() {
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
-  const grouped = groupByCategory(items);
   const activeList = lists.find((l) => l.id === activeListId) ?? null;
+
+  // Separate auto vs manual items
+  const autoItems = items.filter((i) => (i as ShoppingListItem & { source?: string }).source !== "manual");
+  const manualItems = items.filter((i) => (i as ShoppingListItem & { source?: string }).source === "manual");
+  const autoGrouped = groupByCategory(autoItems);
+  const manualGrouped = groupByCategory(manualItems);
 
   async function handleCopyList() {
     const lines: string[] = [activeList!.name, ""];
-    for (const [category, catItems] of Array.from(grouped.entries())) {
+    const allGrouped = groupByCategory(items);
+    for (const [category, catItems] of Array.from(allGrouped.entries())) {
       lines.push(category);
       for (const item of catItems) {
         lines.push(`${item.checked ? "[x]" : "[ ]"} ${item.product_name} x${item.quantity}`);
@@ -204,27 +211,27 @@ export default function ShoppingListPage() {
       document.body.removeChild(ta);
     }
     setCopyLabel("Copied!");
-    setTimeout(() => setCopyLabel("Copy List"), 2000);
+    setTimeout(() => setCopyLabel("Share List"), 2000);
   }
 
   return (
     <div className="flex flex-col h-full gap-6">
       {/* Header */}
       <div className="flex items-center gap-3 flex-wrap">
-        <h1 className="text-2xl font-bold text-zinc-100 flex-1">Shopping Lists</h1>
+        <h1 className="font-heading text-2xl text-warm-900 flex-1">Shopping Lists</h1>
         <button
           onClick={handleAutoGenerate}
           disabled={generating}
-          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+          className="border border-sage-300 text-sage-700 font-medium text-sm px-6 py-2.5 rounded-full hover:bg-sage-50 active:bg-sage-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
         >
-          {generating ? "Generating…" : "Auto-Generate"}
+          {generating ? "Generating…" : "Regenerate"}
         </button>
         <button
           onClick={() => {
             setShowNewList((v) => !v);
             setNewListName("");
           }}
-          className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-zinc-100 text-sm font-medium rounded-lg transition-colors"
+          className="bg-sage-500 text-white font-medium text-sm px-6 py-2.5 rounded-full hover:bg-sage-600 active:bg-sage-700 transition-colors duration-200 shadow-sm"
         >
           New List
         </button>
@@ -243,18 +250,18 @@ export default function ShoppingListPage() {
               if (e.key === "Escape") { setShowNewList(false); setNewListName(""); }
             }}
             placeholder="List name…"
-            className="flex-1 max-w-xs bg-zinc-800 border border-zinc-700 text-zinc-100 placeholder-zinc-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-500"
+            className="flex-1 max-w-xs px-4 py-3 rounded-xl border border-warm-300 bg-white text-warm-800 text-sm placeholder:text-warm-400 focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-sage-400 transition-all duration-200"
           />
           <button
             onClick={handleCreateList}
             disabled={creatingList || !newListName.trim()}
-            className="px-3 py-2 bg-zinc-600 hover:bg-zinc-500 disabled:opacity-50 disabled:cursor-not-allowed text-zinc-100 text-sm rounded-lg transition-colors"
+            className="bg-sage-500 text-white font-medium text-sm px-5 py-2.5 rounded-full hover:bg-sage-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
           >
             {creatingList ? "Creating…" : "Confirm"}
           </button>
           <button
             onClick={() => { setShowNewList(false); setNewListName(""); }}
-            className="px-3 py-2 text-zinc-400 hover:text-zinc-200 text-sm transition-colors"
+            className="text-warm-500 hover:text-warm-700 text-sm px-4 py-2.5 rounded-full hover:bg-warm-100 transition-colors duration-200"
           >
             Cancel
           </button>
@@ -263,32 +270,36 @@ export default function ShoppingListPage() {
 
       {/* Error banner */}
       {error && (
-        <div className="text-sm text-red-400 bg-red-900/20 border border-red-800 rounded-lg px-4 py-2">
+        <div className="text-sm text-status-out bg-[#FDEAE5] border border-[#E8C4BB] rounded-xl px-4 py-3">
           {error}
         </div>
       )}
 
       {/* Body: sidebar + main */}
       {loadingLists ? (
-        <p className="text-zinc-500 text-sm">Loading lists…</p>
+        <div className="animate-pulse space-y-2">
+          <div className="h-10 bg-warm-200 rounded-xl w-40" />
+          <div className="h-10 bg-warm-200 rounded-xl w-32" />
+        </div>
       ) : lists.length === 0 ? (
         /* Empty state */
         <div className="flex flex-col items-center justify-center flex-1 gap-4 py-20 text-center">
-          <p className="text-zinc-400 text-lg">No shopping lists yet.</p>
-          <p className="text-zinc-500 text-sm">
-            Auto-generate a list based on your inventory, or create one manually.
+          <ShoppingCart className="w-16 h-16 text-warm-300" strokeWidth={1.25} />
+          <h3 className="font-heading text-xl text-warm-800">Your shopping list is empty</h3>
+          <p className="text-sm text-warm-500 max-w-xs">
+            Let us generate a smart list based on your pantry, or start one from scratch.
           </p>
-          <div className="flex gap-3">
+          <div className="flex gap-3 flex-wrap justify-center">
             <button
               onClick={handleAutoGenerate}
               disabled={generating}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
+              className="bg-sage-500 text-white font-medium text-sm px-6 py-2.5 rounded-full hover:bg-sage-600 disabled:opacity-50 transition-colors duration-200 shadow-sm"
             >
               {generating ? "Generating…" : "Auto-Generate"}
             </button>
             <button
               onClick={() => setShowNewList(true)}
-              className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-zinc-100 text-sm font-medium rounded-lg transition-colors"
+              className="border border-sage-300 text-sage-700 font-medium text-sm px-6 py-2.5 rounded-full hover:bg-sage-50 transition-colors duration-200"
             >
               New List
             </button>
@@ -302,14 +313,16 @@ export default function ShoppingListPage() {
               <button
                 key={list.id}
                 onClick={() => setActiveListId(list.id)}
-                className={`shrink-0 text-left px-3 py-2.5 rounded-lg transition-colors ${
+                className={`shrink-0 text-left px-3 py-2.5 rounded-xl transition-colors duration-200 ${
                   list.id === activeListId
-                    ? "bg-zinc-700 text-zinc-100"
-                    : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                    ? "bg-sage-50 text-sage-700"
+                    : "text-warm-600 hover:bg-warm-100 hover:text-warm-800"
                 }`}
               >
-                <div className="text-sm font-medium truncate">{list.name}</div>
-                <div className="text-xs text-zinc-500 mt-0.5">
+                <div className={`text-sm truncate ${list.id === activeListId ? "font-semibold" : "font-medium"}`}>
+                  {list.name}
+                </div>
+                <div className="text-xs text-warm-500 mt-0.5">
                   {list.item_count ?? 0} item{list.item_count !== 1 ? "s" : ""}
                 </div>
               </button>
@@ -319,84 +332,85 @@ export default function ShoppingListPage() {
           {/* Main panel */}
           <main className="flex-1 min-w-0 flex flex-col gap-4">
             {loadingItems ? (
-              <p className="text-zinc-500 text-sm">Loading items…</p>
+              <div className="animate-pulse space-y-3 bg-white rounded-2xl border border-linen p-6 shadow-card">
+                <div className="h-4 bg-warm-200 rounded-lg w-1/3" />
+                <div className="h-4 bg-warm-200 rounded-lg w-1/2" />
+                <div className="h-4 bg-warm-200 rounded-lg w-2/5" />
+              </div>
             ) : activeList ? (
               <>
+                {/* List header */}
                 <div className="flex items-center gap-3">
-                  <div className="text-zinc-300 font-semibold text-base flex-1">{activeList.name}</div>
+                  <div className="font-heading text-lg text-warm-800 flex-1">{activeList.name}</div>
                   {items.length >= 1 && (
                     <button
                       onClick={handleCopyList}
-                      className="px-3 py-1.5 bg-zinc-700 hover:bg-zinc-600 text-zinc-100 text-sm rounded-lg transition-colors"
+                      className="border border-sage-300 text-sage-700 font-medium text-sm px-5 py-2 rounded-full hover:bg-sage-50 active:bg-sage-100 transition-colors duration-200"
                     >
                       {copyLabel}
                     </button>
                   )}
                 </div>
 
-                {/* Item list grouped by category */}
+                {/* Item list */}
                 {items.length === 0 ? (
-                  <p className="text-zinc-500 text-sm">No items. Add one below.</p>
+                  <div className="bg-white rounded-2xl border border-linen p-8 shadow-card flex flex-col items-center text-center gap-3">
+                    <ShoppingCart className="w-10 h-10 text-warm-300" strokeWidth={1.25} />
+                    <p className="text-sm text-warm-500">No items yet. Add one below.</p>
+                  </div>
                 ) : (
-                  <div className="flex flex-col gap-4">
-                    {Array.from(grouped.entries()).map(([category, catItems]) => (
-                      <div key={category}>
-                        {/* Sticky category label */}
-                        <div className="sticky top-0 bg-zinc-900 z-10 text-xs font-semibold uppercase tracking-wider text-zinc-500 py-1 mb-1 border-b border-zinc-800">
-                          {category}
-                        </div>
-                        <div className="flex flex-col gap-0.5">
-                          {catItems.map((item) => (
-                            <div
-                              key={item.id}
-                              className={`flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-zinc-800/50 group transition-colors ${
-                                item.checked ? "opacity-50" : ""
-                              }`}
-                            >
-                              {/* Checkbox */}
-                              <input
-                                type="checkbox"
-                                checked={item.checked}
-                                onChange={() => handleCheck(item)}
-                                className="w-4 h-4 accent-emerald-500 cursor-pointer shrink-0"
-                              />
-                              {/* Name */}
-                              <span
-                                className={`flex-1 text-sm text-zinc-200 ${
-                                  item.checked ? "line-through text-zinc-500" : ""
-                                }`}
-                              >
-                                {item.product_name}
-                              </span>
-                              {/* Quantity */}
-                              <span className="text-xs text-zinc-500 shrink-0">
-                                x{item.quantity}
-                              </span>
-                              {/* Delete */}
-                              <button
-                                onClick={() => handleDelete(item)}
-                                className="opacity-0 group-hover:opacity-100 text-zinc-600 hover:text-red-400 transition-all shrink-0"
-                                title="Remove item"
-                              >
-                                <TrashIcon />
-                              </button>
+                  <div className="bg-white rounded-2xl border border-linen p-6 shadow-card flex flex-col gap-0">
+
+                    {/* Auto-generated section */}
+                    {autoItems.length > 0 && (
+                      <div>
+                        <div className="font-heading text-lg text-warm-800 mb-3">Smart Picks</div>
+                        {Array.from(autoGrouped.entries()).map(([category, catItems]) => (
+                          <div key={category}>
+                            <div className="text-xs font-medium text-warm-500 uppercase tracking-wide mt-4 mb-2 first:mt-0">
+                              {category}
                             </div>
-                          ))}
-                        </div>
+                            {catItems.map((item) => (
+                              <ItemRow key={item.id} item={item} onCheck={handleCheck} onDelete={handleDelete} />
+                            ))}
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
+
+                    {/* Divider between sections */}
+                    {autoItems.length > 0 && manualItems.length > 0 && (
+                      <div className="border-t border-linen my-4" />
+                    )}
+
+                    {/* Manual section */}
+                    {manualItems.length > 0 && (
+                      <div>
+                        <div className="font-heading text-lg text-warm-800 mb-3">Added by You</div>
+                        {Array.from(manualGrouped.entries()).map(([category, catItems]) => (
+                          <div key={category}>
+                            <div className="text-xs font-medium text-warm-500 uppercase tracking-wide mt-4 mb-2 first:mt-0">
+                              {category}
+                            </div>
+                            {catItems.map((item) => (
+                              <ItemRow key={item.id} item={item} onCheck={handleCheck} onDelete={handleDelete} />
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {/* Add item row — stacks on mobile, row on sm+ */}
-                <div className="flex flex-col sm:flex-row gap-2 mt-2">
+                <div className="flex flex-col sm:flex-row gap-2 mt-1">
                   <input
                     type="text"
                     value={addName}
                     onChange={(e) => setAddName(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter") handleAddItem(); }}
                     placeholder="Add item…"
-                    className="flex-1 bg-zinc-800 border border-zinc-700 text-zinc-100 placeholder-zinc-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-500"
+                    className="flex-1 px-4 py-3 rounded-xl border border-warm-300 bg-white text-warm-800 text-sm placeholder:text-warm-400 focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-sage-400 transition-all duration-200"
                   />
                   <div className="flex gap-2">
                     <input
@@ -404,12 +418,12 @@ export default function ShoppingListPage() {
                       value={addQty}
                       min={1}
                       onChange={(e) => setAddQty(Math.max(1, Number(e.target.value)))}
-                      className="w-16 bg-zinc-800 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-sm text-center focus:outline-none focus:ring-1 focus:ring-zinc-500"
+                      className="w-16 px-2 py-3 rounded-xl border border-warm-300 bg-white text-warm-800 text-sm text-center focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-sage-400 transition-all duration-200"
                     />
                     <button
                       onClick={handleAddItem}
                       disabled={adding || !addName.trim()}
-                      className="flex-1 sm:flex-none px-4 py-2 bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed text-zinc-100 text-sm rounded-lg transition-colors"
+                      className="flex-1 sm:flex-none px-6 py-2.5 bg-sage-500 text-white font-medium text-sm rounded-full hover:bg-sage-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 shadow-sm"
                     >
                       {adding ? "Adding…" : "Add"}
                     </button>
@@ -424,23 +438,48 @@ export default function ShoppingListPage() {
   );
 }
 
-// ─── Icons ────────────────────────────────────────────────────────────────────
+// ─── Item Row ─────────────────────────────────────────────────────────────────
 
-function TrashIcon() {
+function ItemRow({
+  item,
+  onCheck,
+  onDelete,
+}: {
+  item: ShoppingListItem;
+  onCheck: (item: ShoppingListItem) => void;
+  onDelete: (item: ShoppingListItem) => void;
+}) {
   return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      className="w-4 h-4"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth={1.5}
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+    <div className="flex items-center gap-3 py-3 border-b border-linen/50 last:border-0 group">
+      {/* Checkbox */}
+      <input
+        type="checkbox"
+        checked={item.checked}
+        onChange={() => onCheck(item)}
+        className="w-4 h-4 accent-sage-500 cursor-pointer shrink-0"
       />
-    </svg>
+      {/* Name */}
+      <span
+        className={`flex-1 text-sm font-medium transition-colors ${
+          item.checked
+            ? "line-through text-warm-400 decoration-warm-300"
+            : "text-warm-800"
+        }`}
+      >
+        {item.product_name}
+      </span>
+      {/* Quantity */}
+      <span className="text-sm text-warm-500 shrink-0">
+        ×{item.quantity}
+      </span>
+      {/* Delete */}
+      <button
+        onClick={() => onDelete(item)}
+        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-full text-warm-400 hover:text-status-out hover:bg-[#FDEAE5] transition-all duration-200 shrink-0"
+        title="Remove item"
+      >
+        <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+      </button>
+    </div>
   );
 }
