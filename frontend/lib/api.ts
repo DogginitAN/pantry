@@ -114,7 +114,16 @@ export type MealIngredient = {
 
 // Meal planner
 export function suggestMeals(preferences?: string, count: number = 5) {
-  return apiFetch<{ suggestions: Array<{ id: number; title: string; ingredients: string[]; instructions: string }> }>("/meals/suggest", {
+  return apiFetch<{
+    suggestions: Array<{
+      id: number | null;
+      title: string;
+      available_ingredients: string[];
+      missing_ingredients: string[];
+      ingredients: string[];
+      instructions: string;
+    }>;
+  }>("/meals/suggest", {
     method: "POST",
     body: JSON.stringify({ preferences, count }),
   });
@@ -126,7 +135,7 @@ export function getMealSuggestions(): Promise<MealSuggestion[]> {
 
 export function saveMealSuggestion(id: number): Promise<MealSuggestion> {
   return apiFetch<MealSuggestion>(`/meals/suggestions/${id}/save`, {
-    method: "POST",
+    method: "PATCH",
   });
 }
 

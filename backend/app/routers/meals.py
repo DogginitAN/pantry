@@ -34,6 +34,8 @@ class MealSuggestRequest(BaseModel):
 class MealSuggestion(BaseModel):
     id: Optional[int] = None
     title: str
+    available_ingredients: list[str]
+    missing_ingredients: list[str]
     ingredients: list[str]
     instructions: str
 
@@ -97,6 +99,8 @@ def suggest_meals_endpoint(body: MealSuggestRequest = MealSuggestRequest(), db: 
         suggestions.append(MealSuggestion(
             id=suggestion_id,
             title=title,
+            available_ingredients=available,
+            missing_ingredients=missing,
             ingredients=all_ingredients,
             instructions=instructions,
         ))
