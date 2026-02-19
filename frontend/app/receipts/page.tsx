@@ -2,7 +2,7 @@
 
 import { useRef, useState, useEffect } from "react";
 import Link from "next/link";
-import { Upload, Camera } from "lucide-react";
+import { Upload, Camera, Receipt as ReceiptIcon } from "lucide-react";
 import { uploadReceipt, getReceipts, Receipt } from "@/lib/api";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -158,7 +158,7 @@ export default function ReceiptsPage() {
   // ─── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="p-4 md:p-6 max-w-2xl mx-auto">
+    <div className="p-4 md:p-6 max-w-2xl mx-auto animate-fade-in-up">
       <h1 className="font-heading text-2xl text-warm-900 mb-6">Receipts</h1>
 
       {/* ── Hidden file inputs — permanently rendered so refs survive on iOS ── */}
@@ -222,9 +222,17 @@ export default function ReceiptsPage() {
           </div>
 
           {/* Past receipts list */}
-          {receipts.length > 0 && (
-            <div className="mt-8">
-              <h2 className="font-heading text-xl text-warm-800 mb-4">Past Receipts</h2>
+          <div className="mt-8 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
+            <h2 className="font-heading text-xl text-warm-800 mb-4">Past Receipts</h2>
+            {receipts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <ReceiptIcon className="w-16 h-16 text-warm-300 mb-4" strokeWidth={1.25} />
+                <h3 className="font-heading text-xl text-warm-800 mb-2">No receipts yet</h3>
+                <p className="text-sm text-warm-500 max-w-xs">
+                  Upload your first receipt above to start tracking your grocery spending.
+                </p>
+              </div>
+            ) : (
               <div className="space-y-3">
                 {receipts.map((receipt) => (
                   <Link
@@ -253,8 +261,8 @@ export default function ReceiptsPage() {
                   </Link>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </>
       )}
 

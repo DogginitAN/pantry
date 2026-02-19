@@ -138,7 +138,7 @@ export default function DashboardPage() {
     : openLists.reduce((sum, l) => sum + (l.item_count ?? 0), 0);
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto animate-fade-in-up">
       <h1 className="font-heading text-2xl text-warm-900 mb-1">Dashboard</h1>
       <p className="text-base text-warm-500 mb-8">Your pantry at a glance.</p>
 
@@ -148,7 +148,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <section className="mb-8">
+      <section className="mb-8 animate-fade-in-up" style={{ animationDelay: "50ms" }}>
         <h2 className="font-heading text-xl text-warm-800 mb-3">
           Inventory Summary
         </h2>
@@ -160,7 +160,7 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <section className="mb-8">
+      <section className="mb-8 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
         <h2 className="font-heading text-xl text-warm-800 mb-3">
           Shopping Lists
         </h2>
@@ -183,7 +183,7 @@ export default function DashboardPage() {
         )}
       </section>
 
-      <section className="mb-8">
+      <section className="mb-8 animate-fade-in-up" style={{ animationDelay: "150ms" }}>
         <h2 className="font-heading text-xl text-warm-800 mb-3">
           Running Low Alerts
         </h2>
@@ -207,7 +207,7 @@ export default function DashboardPage() {
         )}
       </section>
 
-      <section className="mb-8">
+      <section className="mb-8 animate-fade-in-up" style={{ animationDelay: "200ms" }}>
         <h2 className="font-heading text-xl text-warm-800 mb-3">
           Spending
         </h2>
@@ -232,7 +232,7 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <section>
+      <section className="animate-fade-in-up" style={{ animationDelay: "250ms" }}>
         <h2 className="font-heading text-xl text-warm-800 mb-3">
           Quick Actions
         </h2>

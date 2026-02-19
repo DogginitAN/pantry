@@ -120,7 +120,7 @@ export default function ReceiptDetailPage() {
   // ── Main render ──────────────────────────────────────────────────────────────
 
   return (
-    <div className="p-4 md:p-6 max-w-3xl mx-auto">
+    <div className="p-4 md:p-6 max-w-3xl mx-auto animate-fade-in-up">
       {/* Link instead of router.back() to handle direct URL access */}
       <Link
         href="/receipts"

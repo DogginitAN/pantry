@@ -216,7 +216,7 @@ export default function InventoryPage() {
   ];
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto animate-fade-in-up">
       <h1 className="font-heading text-2xl text-warm-900 mb-1">Inventory</h1>
       <p className="text-warm-500 text-sm mb-6">
         {loading ? "Loading…" : `${items.length} products tracked`}
@@ -323,7 +323,7 @@ export default function InventoryPage() {
                     <td colSpan={7} className="px-4 py-16 text-center">
                       <div className="flex flex-col items-center gap-3">
                         <Package className="w-16 h-16 text-warm-300" strokeWidth={1.25} />
-                        <p className="font-heading text-xl text-warm-700">
+                        <p className="font-heading text-xl text-warm-800">
                           {search ? "No products found" : "Nothing here yet"}
                         </p>
                         <p className="text-sm text-warm-400">

@@ -5,6 +5,7 @@ import { Download } from "lucide-react";
 import { getAISettings, updateAISettings, exportJSON, exportCSV, type AISettings } from "@/lib/api";
 
 export default function SettingsPage() {
+  const [loadingSettings, setLoadingSettings] = useState(true);
   const [settings, setSettings] = useState<AISettings | null>(null);
   const [provider, setProvider] = useState<"local" | "cloud">("local");
   const [ollamaUrl, setOllamaUrl] = useState("");
@@ -28,7 +29,8 @@ export default function SettingsPage() {
       })
       .catch(() => {
         // leave defaults
-      });
+      })
+      .finally(() => setLoadingSettings(false));
   }, []);
 
   function showFeedback(msg: string, ok: boolean) {
@@ -116,8 +118,33 @@ export default function SettingsPage() {
     </svg>
   );
 
+  if (loadingSettings) {
+    return (
+      <div className="p-6 space-y-8 max-w-2xl animate-fade-in-up">
+        <h1 className="font-heading text-2xl text-warm-900">Settings</h1>
+        <div className="bg-white rounded-2xl border border-linen p-6 shadow-card space-y-4">
+          <div className="h-5 w-32 bg-warm-200 rounded-lg animate-pulse" />
+          <div className="h-4 w-20 bg-warm-200 rounded-lg animate-pulse" />
+          <div className="flex gap-2">
+            <div className="h-10 w-32 bg-warm-200 rounded-full animate-pulse" />
+            <div className="h-10 w-24 bg-warm-200 rounded-full animate-pulse" />
+          </div>
+          <div className="h-10 w-full bg-warm-200 rounded-xl animate-pulse" />
+          <div className="h-10 w-full bg-warm-200 rounded-xl animate-pulse" />
+        </div>
+        <div className="bg-white rounded-2xl border border-linen p-6 shadow-card space-y-4">
+          <div className="h-5 w-28 bg-warm-200 rounded-lg animate-pulse" />
+          <div className="flex gap-3">
+            <div className="h-10 w-32 bg-warm-200 rounded-full animate-pulse" />
+            <div className="h-10 w-32 bg-warm-200 rounded-full animate-pulse" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="p-6 space-y-8 max-w-2xl">
+    <div className="p-6 space-y-8 max-w-2xl animate-fade-in-up">
       <h1 className="font-heading text-2xl text-warm-900">Settings</h1>
 
       {/* AI Provider Config */}

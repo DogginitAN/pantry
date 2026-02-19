@@ -79,7 +79,7 @@ const config: Config = {
         },
       },
       animation: {
-        'fade-in-up': 'fadeInUp 0.4s ease-out forwards',
+        'fade-in-up': 'fadeInUp 0.4s ease-out both',
       },
     },
   },

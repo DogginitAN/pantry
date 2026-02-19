@@ -43,6 +43,7 @@ const CHART_COLORS = [
 ];
 
 export default function SpendingPage() {
+  const [loading, setLoading] = useState(true);
   const [monthly, setMonthly] = useState<MonthlySpend[] | null>(null);
   const [monthlyError, setMonthlyError] = useState(false);
 
@@ -89,6 +90,7 @@ export default function SpendingPage() {
       } else {
         setBudgetError(true);
       }
+      setLoading(false);
     });
   }, []);
 
@@ -144,15 +146,48 @@ export default function SpendingPage() {
     setEditingBudget(false);
   }
 
+  if (loading) {
+    return (
+      <div className="p-6 space-y-8 animate-fade-in-up">
+        <h1 className="font-heading text-2xl text-warm-900">Spending Analytics</h1>
+        {/* Stat card skeletons */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((n) => (
+            <div key={n} className="bg-white rounded-2xl border border-linen p-6 shadow-card">
+              <div className="h-4 w-20 bg-warm-200 rounded-lg animate-pulse mb-3" />
+              <div className="h-8 w-16 bg-warm-200 rounded-lg animate-pulse" />
+            </div>
+          ))}
+        </div>
+        {/* Budget skeleton */}
+        <div className="bg-white rounded-2xl border border-linen p-6 shadow-card">
+          <div className="h-4 w-32 bg-warm-200 rounded-lg animate-pulse mb-4" />
+          <div className="h-3 w-full bg-warm-200 rounded-full animate-pulse" />
+        </div>
+        {/* Chart skeletons */}
+        {[1, 2].map((n) => (
+          <div key={n} className="bg-white rounded-2xl border border-linen p-6 shadow-card">
+            <div className="h-4 w-28 bg-warm-200 rounded-lg animate-pulse mb-4" />
+            <div className="space-y-3">
+              {[1, 2, 3].map((m) => (
+                <div key={m} className="h-4 bg-warm-200 rounded-lg animate-pulse" style={{ width: `${80 - m * 15}%` }} />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   if (hasNoData) {
     return (
-      <div className="p-6">
+      <div className="p-6 animate-fade-in-up">
         <h1 className="font-heading text-2xl text-warm-900 mb-8">Spending Analytics</h1>
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="w-20 h-20 rounded-full bg-sage-50 flex items-center justify-center mb-5">
             <BarChart3 className="w-10 h-10 text-sage-400" strokeWidth={1.25} />
           </div>
-          <h2 className="font-heading text-xl text-warm-700 mb-2">No spending data yet</h2>
+          <h2 className="font-heading text-xl text-warm-800 mb-2">No spending data yet</h2>
           <p className="text-warm-500 text-sm max-w-xs">
             Start scanning your grocery receipts and your spending breakdown will appear here — by category, month, and top items.
           </p>
@@ -162,7 +197,7 @@ export default function SpendingPage() {
   }
 
   return (
-    <div className="p-6 space-y-8">
+    <div className="p-6 space-y-8 animate-fade-in-up">
       <h1 className="font-heading text-2xl text-warm-900">Spending Analytics</h1>
 
       {/* 1. Stat Cards */}

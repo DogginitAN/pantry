@@ -404,7 +404,7 @@ export default function MealPlannerPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 animate-fade-in-up">
       <h1 className="font-heading text-2xl text-warm-900">Meal Planner</h1>
 
       {/* Tab bar */}
