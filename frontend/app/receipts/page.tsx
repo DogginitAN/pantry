@@ -33,10 +33,9 @@ export default function ReceiptsPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  // Three file inputs — all permanently in the DOM to avoid destroyed refs on iOS
+  // Two file inputs — permanently in the DOM to avoid destroyed refs on iOS
   const desktopInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
-  const dropInputRef = useRef<HTMLInputElement>(null);
 
   // ── File handling ──────────────────────────────────────────────────────────
 
@@ -135,14 +134,6 @@ export default function ReceiptsPage() {
         type="file"
         accept="image/*,image/heic,image/heif"
         capture="environment"
-        className="hidden"
-        onChange={onInputChange}
-      />
-      {/* Drop-zone input (unused — drag events handled on the div, kept for ref completeness) */}
-      <input
-        ref={dropInputRef}
-        type="file"
-        accept="image/*,image/heic,image/heif"
         className="hidden"
         onChange={onInputChange}
       />
