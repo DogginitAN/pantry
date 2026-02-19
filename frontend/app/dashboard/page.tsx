@@ -172,7 +172,7 @@ export default function DashboardPage() {
             loading={loading}
           />
           <StatCard
-            label="Items Needed"
+            label="Total Items"
             value={uncheckedItems}
             colorClass="text-zinc-100"
             loading={loading}
