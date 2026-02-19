@@ -3,14 +3,26 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
+import {
+  Home,
+  Package,
+  Receipt,
+  ShoppingCart,
+  ChefHat,
+  BarChart3,
+  Settings,
+  Leaf,
+} from "lucide-react";
 
 const navItems = [
-  { label: "Dashboard", href: "/dashboard" },
-  { label: "Inventory", href: "/inventory" },
-  { label: "Shopping List", href: "/shopping-list" },
-  { label: "Meal Planner", href: "/meal-planner" },
-  { label: "Spending", href: "/spending" },
-  { label: "Settings", href: "/settings" },
+  { label: "Dashboard",    href: "/dashboard",     icon: Home },
+  { label: "Inventory",    href: "/inventory",     icon: Package },
+  { label: "Receipts",     href: "/receipts",      icon: Receipt },
+  { label: "Shopping List",href: "/shopping-list", icon: ShoppingCart },
+  { label: "Meal Planner", href: "/meal-planner",  icon: ChefHat },
+  { label: "Spending",     href: "/spending",      icon: BarChart3 },
+  { label: "Settings",     href: "/settings",      icon: Settings },
+  { label: "About",        href: "/about",         icon: Leaf },
 ];
 
 export default function Sidebar() {
@@ -29,7 +41,7 @@ export default function Sidebar() {
     <>
       {/* Hamburger button — mobile only */}
       <button
-        className="fixed top-3 left-0 z-50 md:hidden bg-zinc-900 p-2 rounded-r-md"
+        className="fixed top-3 left-0 z-50 md:hidden bg-parchment border border-linen p-2 rounded-r-md text-warm-700"
         onClick={() => setIsOpen(true)}
         aria-label="Open menu"
         aria-expanded={isOpen}
@@ -60,12 +72,12 @@ export default function Sidebar() {
 
       {/* Sidebar / drawer */}
       <aside
-        className={`fixed top-0 left-0 h-full w-56 bg-zinc-900 flex flex-col py-6 px-4 shrink-0 z-40 transition-transform duration-200 ease-in-out md:static md:translate-x-0 md:z-auto ${
+        className={`fixed top-0 left-0 h-full w-56 bg-parchment border-r border-linen flex flex-col py-6 px-4 shrink-0 z-40 transition-transform duration-200 ease-in-out md:static md:translate-x-0 md:z-auto ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="mb-8">
-          <span className="text-xl font-bold text-zinc-100 tracking-tight">Pantry</span>
+          <span className="font-heading text-2xl text-warm-800 tracking-tight">Pantry</span>
         </div>
         <nav className="flex flex-col gap-1">
           {navItems.map((item) => {
@@ -76,12 +88,13 @@ export default function Sidebar() {
                 key={item.href}
                 href={item.href}
                 onClick={() => setIsOpen(false)}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors duration-200 ${
                   isActive
-                    ? "bg-zinc-700 text-zinc-100"
-                    : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+                    ? "bg-sage-50 text-sage-700 font-semibold"
+                    : "text-warm-600 hover:text-warm-800 hover:bg-warm-100 font-medium"
                 }`}
               >
+                <item.icon className="w-5 h-5" strokeWidth={1.75} />
                 {item.label}
               </Link>
             );
