@@ -4,6 +4,20 @@ import { useState, useEffect } from "react";
 import { Download } from "lucide-react";
 import { getAISettings, updateAISettings, exportJSON, exportCSV, type AISettings } from "@/lib/api";
 
+function Spinner() {
+  return (
+    <svg
+      className="animate-spin h-4 w-4"
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+    </svg>
+  );
+}
+
 export default function SettingsPage() {
   const [loadingSettings, setLoadingSettings] = useState(true);
   const [settings, setSettings] = useState<AISettings | null>(null);
@@ -105,18 +119,6 @@ export default function SettingsPage() {
     "w-full px-4 py-3 rounded-xl border border-warm-300 bg-white text-warm-800 text-sm placeholder:text-warm-400 focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-sage-400 transition-all duration-200";
 
   const labelClass = "block text-sm font-medium text-warm-700 mb-1.5";
-
-  const Spinner = () => (
-    <svg
-      className="animate-spin h-4 w-4"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-    >
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-    </svg>
-  );
 
   if (loadingSettings) {
     return (
