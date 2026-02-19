@@ -11,7 +11,6 @@ import {
   ChefHat,
   BarChart3,
   Settings,
-  Leaf,
 } from "lucide-react";
 
 const navItems = [
@@ -22,7 +21,6 @@ const navItems = [
   { label: "Meal Planner", href: "/meal-planner",  icon: ChefHat },
   { label: "Spending",     href: "/spending",      icon: BarChart3 },
   { label: "Settings",     href: "/settings",      icon: Settings },
-  { label: "About",        href: "/about",         icon: Leaf },
 ];
 
 export default function Sidebar() {
