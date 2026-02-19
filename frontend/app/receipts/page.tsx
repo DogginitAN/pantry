@@ -1,7 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { uploadReceipt } from "@/lib/api";
+import { useRef, useState, useEffect } from "react";
+import Link from "next/link";
+import { Upload, Camera } from "lucide-react";
+import { uploadReceipt, getReceipts, Receipt } from "@/lib/api";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -25,6 +27,36 @@ interface UploadResult {
 
 type Stage = "idle" | "uploading" | "review" | "saving" | "done" | "error";
 
+// ─── StatusBadge ──────────────────────────────────────────────────────────────
+
+function StatusBadge({ status }: { status: string }) {
+  if (status === "processing") {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-sage-100 text-sage-700">
+        <span className="w-3 h-3 border border-sage-300 border-t-sage-600 rounded-full animate-spin" />
+        Processing
+      </span>
+    );
+  }
+  const cls: Record<string, string> = {
+    pending: "bg-warm-200 text-warm-600",
+    ready:   "bg-[#E8F3E8] text-status-fresh",
+    saved:   "bg-sage-100 text-sage-600",
+    failed:  "bg-[#FDEAE5] text-status-out",
+  };
+  const labels: Record<string, string> = {
+    pending: "Pending",
+    ready:   "Ready",
+    saved:   "Saved",
+    failed:  "Failed",
+  };
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${cls[status] ?? "bg-warm-200 text-warm-500"}`}>
+      ● {labels[status] ?? status}
+    </span>
+  );
+}
+
 // ─── Upload Page ──────────────────────────────────────────────────────────────
 
 export default function ReceiptsPage() {
@@ -32,10 +64,18 @@ export default function ReceiptsPage() {
   const [result, setResult] = useState<UploadResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [receipts, setReceipts] = useState<Receipt[]>([]);
 
   // Two file inputs — permanently in the DOM to avoid destroyed refs on iOS
   const desktopInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  // Load past receipts for the idle-state list
+  useEffect(() => {
+    getReceipts()
+      .then(setReceipts)
+      .catch(() => {}); // silent — list is optional
+  }, []);
 
   // ── File handling ──────────────────────────────────────────────────────────
 
@@ -101,6 +141,8 @@ export default function ReceiptsPage() {
       });
       if (!res.ok) throw new Error(`Confirm error ${res.status}`);
       setStage("done");
+      // Refresh receipts list so it's ready when user returns to idle
+      getReceipts().then(setReceipts).catch(() => {});
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : "Save failed.");
       setStage("error");
@@ -117,10 +159,10 @@ export default function ReceiptsPage() {
 
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold text-zinc-100 mb-6">Upload Receipt</h1>
+      <h1 className="font-heading text-2xl text-warm-900 mb-6">Receipts</h1>
 
       {/* ── Hidden file inputs — permanently rendered so refs survive on iOS ── */}
-      {/* Desktop/general file picker */}
+      {/* Desktop/general file picker — static accept prop required for iOS */}
       <input
         ref={desktopInputRef}
         type="file"
@@ -140,122 +182,163 @@ export default function ReceiptsPage() {
 
       {/* ── Idle / Drop zone ──────────────────────────────────────────────── */}
       {stage === "idle" && (
-        <div
-          onClick={onZoneClick}
-          onDragOver={onDragOver}
-          onDragLeave={onDragLeave}
-          onDrop={onDrop}
-          className={`
-            relative flex flex-col items-center justify-center gap-4
-            border-2 border-dashed rounded-xl p-10 cursor-pointer
-            transition-colors select-none
-            ${isDragging
-              ? "border-emerald-500 bg-emerald-950/30"
-              : "border-zinc-700 bg-zinc-900 hover:border-zinc-500"
-            }
-          `}
-        >
-          {/* Receipt icon */}
-          <svg className="w-14 h-14 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-
-          {/* Responsive instruction text */}
-          <p className="block md:hidden text-zinc-400 text-center text-sm">
-            Tap to choose photo or use camera
-          </p>
-          <p className="hidden md:block text-zinc-400 text-center text-sm">
-            Drag &amp; drop, click to browse, or use camera
-          </p>
-
-          <p className="text-zinc-600 text-xs">JPEG, PNG, HEIC, WEBP accepted</p>
-
-          {/* Camera button — stopPropagation prevents zone onClick from also firing */}
-          <button
-            type="button"
-            onClick={onCameraClick}
-            className="mt-2 flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-sm transition-colors"
+        <>
+          <div
+            onClick={onZoneClick}
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+            onDrop={onDrop}
+            className={`
+              relative flex flex-col items-center justify-center gap-3
+              border-2 border-dashed rounded-2xl p-8 cursor-pointer
+              text-center transition-colors select-none
+              ${isDragging
+                ? "border-sage-400 bg-sage-50/30"
+                : "bg-warm-50 border-warm-300 hover:border-sage-400 hover:bg-sage-50/30"
+              }
+            `}
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            Use Camera
-          </button>
-        </div>
+            <Upload className="w-12 h-12 text-warm-400 mb-1" strokeWidth={1.25} />
+
+            {/* Responsive instruction text */}
+            <p className="block md:hidden text-warm-600 text-sm">
+              Tap to choose photo or use camera
+            </p>
+            <p className="hidden md:block text-warm-600 text-sm">
+              Drag &amp; drop, click to browse, or use camera
+            </p>
+
+            <p className="text-warm-400 text-xs">JPEG, PNG, HEIC, WEBP accepted</p>
+
+            {/* Camera button — stopPropagation prevents zone onClick from also firing */}
+            <button
+              type="button"
+              onClick={onCameraClick}
+              className="mt-2 flex items-center gap-2 px-6 py-2.5 min-h-[44px] bg-sage-500 hover:bg-sage-600 active:bg-sage-700 text-white rounded-full text-sm font-medium transition-colors shadow-sm"
+            >
+              <Camera className="w-4 h-4" strokeWidth={1.75} />
+              Use Camera
+            </button>
+          </div>
+
+          {/* Past receipts list */}
+          {receipts.length > 0 && (
+            <div className="mt-8">
+              <h2 className="font-heading text-xl text-warm-800 mb-4">Past Receipts</h2>
+              <div className="space-y-3">
+                {receipts.map((receipt) => (
+                  <Link
+                    key={receipt.id}
+                    href={`/receipts/${receipt.id}`}
+                    className="block bg-white rounded-2xl border border-linen p-5 shadow-card hover:shadow-card-hover transition-shadow"
+                  >
+                    <div className="flex justify-between items-start gap-3">
+                      <div className="min-w-0">
+                        <p className="text-warm-800 font-semibold truncate">
+                          {receipt.store_name ?? "Unknown Store"}
+                        </p>
+                        <p className="text-warm-500 text-sm">
+                          {new Date(receipt.receipt_date || receipt.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        {receipt.total_amount != null && (
+                          <span className="text-warm-700 font-medium text-sm">
+                            ${receipt.total_amount.toFixed(2)}
+                          </span>
+                        )}
+                        <StatusBadge status={receipt.processing_status} />
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* ── Uploading ─────────────────────────────────────────────────────── */}
       {stage === "uploading" && (
         <div className="flex flex-col items-center justify-center gap-4 py-20">
-          <svg className="w-8 h-8 animate-spin text-emerald-500" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-          <p className="text-zinc-400">Processing receipt…</p>
+          <div className="w-6 h-6 border-2 border-sage-200 border-t-sage-500 rounded-full animate-spin" />
+          <p className="text-warm-500">Processing receipt…</p>
         </div>
       )}
 
       {/* ── Review ────────────────────────────────────────────────────────── */}
       {stage === "review" && result && (
         <div className="space-y-4">
-          {/* Header info */}
-          <div className="bg-zinc-900 rounded-xl p-4 border border-zinc-800">
-            <div className="flex justify-between items-start">
+          {/* Header card */}
+          <div className="bg-white rounded-2xl border border-linen p-5 shadow-card">
+            <div className="flex justify-between items-start gap-3">
               <div>
-                <p className="text-zinc-100 font-semibold text-lg">{result.store_name ?? "Unknown Store"}</p>
-                <p className="text-zinc-500 text-sm">{result.receipt_date ?? "Date unknown"}</p>
+                <p className="text-warm-800 font-semibold text-base">
+                  {result.store_name ?? "Unknown Store"}
+                </p>
+                <p className="text-warm-500 text-sm">{result.receipt_date ?? "Date unknown"}</p>
               </div>
               {result.total_amount != null && (
-                <p className="text-emerald-400 font-bold text-xl">${result.total_amount.toFixed(2)}</p>
+                <p className="text-sage-600 font-semibold text-xl shrink-0">
+                  ${result.total_amount.toFixed(2)}
+                </p>
               )}
             </div>
           </div>
 
           {/* Items table */}
-          <div className="bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-zinc-800 text-zinc-400 text-left">
-                  <th className="px-4 py-3 font-medium">Item</th>
-                  <th className="px-4 py-3 font-medium text-right">Qty</th>
-                  <th className="px-4 py-3 font-medium text-right">Unit</th>
-                  <th className="px-4 py-3 font-medium text-right">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {result.items.map((item) => (
-                  <tr key={item.id} className="border-b border-zinc-800/50 hover:bg-zinc-800/30">
-                    <td className="px-4 py-2 text-zinc-200">
-                      {item.product_name}
-                      {item.confidence != null && (item.confidence ?? 1) < 0.7 && (
-                        <span className="ml-2 text-xs text-amber-500">low confidence</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2 text-zinc-400 text-right">{item.quantity ?? "—"}</td>
-                    <td className="px-4 py-2 text-zinc-400 text-right">
-                      {item.unit_price != null ? `$${item.unit_price.toFixed(2)}` : "—"}
-                    </td>
-                    <td className="px-4 py-2 text-zinc-300 text-right">
-                      {item.total_price != null ? `$${item.total_price.toFixed(2)}` : "—"}
-                    </td>
+          <div className="bg-white rounded-2xl border border-linen shadow-card overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-linen">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-warm-500">Item</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-warm-500">Qty</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-warm-500">Unit</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-warm-500">Total</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {result.items.map((item) => (
+                    <tr
+                      key={item.id}
+                      className="border-b border-linen/50 last:border-0 hover:bg-warm-50 transition-colors"
+                    >
+                      <td className="px-4 py-3.5 text-warm-800 font-medium">
+                        {item.product_name}
+                        {item.confidence != null && (item.confidence ?? 1) < 0.7 && (
+                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#FFF3E0] text-status-low">
+                            low confidence
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3.5 text-warm-500 text-right whitespace-nowrap">
+                        {item.quantity ?? "—"}
+                      </td>
+                      <td className="px-4 py-3.5 text-warm-500 text-right whitespace-nowrap">
+                        {item.unit_price != null ? `$${item.unit_price.toFixed(2)}` : "—"}
+                      </td>
+                      <td className="px-4 py-3.5 text-warm-600 text-right whitespace-nowrap">
+                        {item.total_price != null ? `$${item.total_price.toFixed(2)}` : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* Actions */}
           <div className="flex gap-3">
             <button
               onClick={handleConfirm}
-              className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium transition-colors"
+              className="flex-1 py-2.5 min-h-[44px] bg-sage-500 hover:bg-sage-600 active:bg-sage-700 text-white rounded-full font-medium text-sm transition-colors shadow-sm"
             >
               Save to Inventory
             </button>
             <button
               onClick={handleRetry}
-              className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg transition-colors"
+              className="px-6 py-2.5 min-h-[44px] border border-sage-300 text-sage-700 rounded-full text-sm font-medium hover:bg-sage-50 active:bg-sage-100 transition-colors"
             >
               Discard
             </button>
@@ -266,27 +349,24 @@ export default function ReceiptsPage() {
       {/* ── Saving ────────────────────────────────────────────────────────── */}
       {stage === "saving" && (
         <div className="flex flex-col items-center justify-center gap-4 py-20">
-          <svg className="w-8 h-8 animate-spin text-emerald-500" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-          <p className="text-zinc-400">Saving to inventory…</p>
+          <div className="w-6 h-6 border-2 border-sage-200 border-t-sage-500 rounded-full animate-spin" />
+          <p className="text-warm-500">Saving to inventory…</p>
         </div>
       )}
 
       {/* ── Done ──────────────────────────────────────────────────────────── */}
       {stage === "done" && (
         <div className="flex flex-col items-center justify-center gap-4 py-20">
-          <div className="w-14 h-14 rounded-full bg-emerald-900 flex items-center justify-center">
-            <svg className="w-8 h-8 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <div className="w-14 h-14 rounded-full bg-[#E8F3E8] flex items-center justify-center">
+            <svg className="w-8 h-8 text-status-fresh" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <p className="text-zinc-100 font-semibold">Receipt saved!</p>
-          <p className="text-zinc-500 text-sm">Items have been added to your inventory.</p>
+          <p className="font-heading text-xl text-warm-900">Receipt saved!</p>
+          <p className="text-warm-500 text-sm">Items have been added to your inventory.</p>
           <button
             onClick={handleRetry}
-            className="mt-2 px-6 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg transition-colors"
+            className="mt-2 px-6 py-2.5 min-h-[44px] border border-sage-300 text-sage-700 rounded-full text-sm font-medium hover:bg-sage-50 transition-colors"
           >
             Upload Another
           </button>
@@ -296,16 +376,16 @@ export default function ReceiptsPage() {
       {/* ── Error ─────────────────────────────────────────────────────────── */}
       {stage === "error" && (
         <div className="flex flex-col items-center justify-center gap-4 py-20">
-          <div className="w-14 h-14 rounded-full bg-red-900 flex items-center justify-center">
-            <svg className="w-8 h-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <div className="w-14 h-14 rounded-full bg-[#FDEAE5] flex items-center justify-center">
+            <svg className="w-8 h-8 text-status-out" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </div>
-          <p className="text-zinc-100 font-semibold">Something went wrong</p>
-          {errorMsg && <p className="text-zinc-500 text-sm text-center max-w-xs">{errorMsg}</p>}
+          <p className="font-heading text-xl text-warm-900">Something went wrong</p>
+          {errorMsg && <p className="text-warm-500 text-sm text-center max-w-xs">{errorMsg}</p>}
           <button
             onClick={handleRetry}
-            className="mt-2 px-6 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg transition-colors"
+            className="mt-2 px-6 py-2.5 min-h-[44px] bg-sage-500 hover:bg-sage-600 active:bg-sage-700 text-white rounded-full text-sm font-medium transition-colors shadow-sm"
           >
             Try Again
           </button>
