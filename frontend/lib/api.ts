@@ -98,11 +98,46 @@ export function deleteShoppingListItem(listId: number, itemId: number): Promise<
   });
 }
 
+// Meal planner types
+export type MealSuggestion = {
+  id: number;
+  suggestion_text: string;
+  ingredients_used: string[] | null;
+  saved: boolean;
+  created_at: string;
+};
+
+export type MealIngredient = {
+  name: string;
+  quantity: string;
+};
+
 // Meal planner
 export function suggestMeals(preferences?: string, count: number = 5) {
-  return apiFetch<{ suggestions: unknown[] }>("/meals/suggest", {
+  return apiFetch<{ suggestions: Array<{ id: number; title: string; ingredients: string[]; instructions: string }> }>("/meals/suggest", {
     method: "POST",
     body: JSON.stringify({ preferences, count }),
+  });
+}
+
+export function getMealSuggestions(): Promise<MealSuggestion[]> {
+  return apiFetch<MealSuggestion[]>("/meals/suggestions");
+}
+
+export function saveMealSuggestion(id: number): Promise<MealSuggestion> {
+  return apiFetch<MealSuggestion>(`/meals/suggestions/${id}/save`, {
+    method: "POST",
+  });
+}
+
+export function addMealIngredientsToList(
+  suggestionId: number,
+  listId: number,
+  ingredients: MealIngredient[]
+): Promise<{ added: number }> {
+  return apiFetch<{ added: number }>(`/meals/suggestions/${suggestionId}/add-to-list`, {
+    method: "POST",
+    body: JSON.stringify({ list_id: listId, ingredients }),
   });
 }
 
