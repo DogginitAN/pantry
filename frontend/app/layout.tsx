@@ -30,7 +30,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-zinc-950 text-zinc-100 min-h-screen flex`}
       >
         <Sidebar />
-        <main className="flex-1 p-6 overflow-auto">
+        <main className="flex-1 px-6 pb-6 pt-14 md:pt-6 overflow-auto">
           {children}
         </main>
       </body>
