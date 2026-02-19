@@ -150,9 +150,33 @@ export function addMealIngredientsToList(
   });
 }
 
+// Receipt types
+export type Receipt = {
+  id: number;
+  store_name: string | null;
+  receipt_date: string | null;
+  total_amount: number | null;
+  processing_status: string;
+  created_at: string;
+  image_path: string | null;
+};
+
+export type ReceiptItem = {
+  id: number;
+  product_name: string;
+  quantity: number | null;
+  unit_price: number | null;
+  total_price: number | null;
+  confidence: number | null;
+};
+
 // Receipts
-export function getReceipts() {
-  return apiFetch<unknown[]>("/receipts");
+export function getReceipts(): Promise<Receipt[]> {
+  return apiFetch<Receipt[]>("/receipts");
+}
+
+export function getReceipt(id: number): Promise<{ receipt: Receipt; items: ReceiptItem[] }> {
+  return apiFetch<{ receipt: Receipt; items: ReceiptItem[] }>(`/receipts/${id}`);
 }
 
 export function uploadReceipt(formData: FormData) {
