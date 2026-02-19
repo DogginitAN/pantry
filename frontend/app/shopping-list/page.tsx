@@ -46,6 +46,7 @@ export default function ShoppingListPage() {
   const [addName, setAddName] = useState("");
   const [addQty, setAddQty] = useState(1);
   const [adding, setAdding] = useState(false);
+  const [copyLabel, setCopyLabel] = useState("Copy List");
   const [error, setError] = useState<string | null>(null);
   const newListInputRef = useRef<HTMLInputElement>(null);
 
@@ -178,6 +179,34 @@ export default function ShoppingListPage() {
   const grouped = groupByCategory(items);
   const activeList = lists.find((l) => l.id === activeListId) ?? null;
 
+  async function handleCopyList() {
+    const lines: string[] = [activeList!.name, ""];
+    for (const [category, catItems] of Array.from(grouped.entries())) {
+      lines.push(category);
+      for (const item of catItems) {
+        lines.push(`${item.checked ? "[x]" : "[ ]"} ${item.product_name} x${item.quantity}`);
+      }
+      lines.push("");
+    }
+    const text = lines.join("\n").trimEnd();
+
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // Fallback for non-HTTPS or blocked clipboard permissions
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.top = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+    setCopyLabel("Copied!");
+    setTimeout(() => setCopyLabel("Copy List"), 2000);
+  }
+
   return (
     <div className="flex flex-col h-full gap-6">
       {/* Header */}
@@ -293,7 +322,17 @@ export default function ShoppingListPage() {
               <p className="text-zinc-500 text-sm">Loading items…</p>
             ) : activeList ? (
               <>
-                <div className="text-zinc-300 font-semibold text-base">{activeList.name}</div>
+                <div className="flex items-center gap-3">
+                  <div className="text-zinc-300 font-semibold text-base flex-1">{activeList.name}</div>
+                  {items.length >= 1 && (
+                    <button
+                      onClick={handleCopyList}
+                      className="px-3 py-1.5 bg-zinc-700 hover:bg-zinc-600 text-zinc-100 text-sm rounded-lg transition-colors"
+                    >
+                      {copyLabel}
+                    </button>
+                  )}
+                </div>
 
                 {/* Item list grouped by category */}
                 {items.length === 0 ? (
