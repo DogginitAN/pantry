@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { Search, Package, ChevronRight } from "lucide-react";
 import { getInventory } from "@/lib/api";
+import { EmptyState, ErrorState } from "@/components/ui";
 
 interface InventoryItem {
   id: number;
@@ -224,8 +225,8 @@ export default function InventoryPage() {
 
       {/* Error banner */}
       {error && (
-        <div className="mb-6 bg-[#FDEAE5] border border-[#E8C4BB] text-status-out text-sm rounded-xl px-4 py-3">
-          Could not load inventory: {error}
+        <div className="mb-6">
+          <ErrorState message={`Could not load inventory: ${error}`} />
         </div>
       )}
 
@@ -320,18 +321,16 @@ export default function InventoryPage() {
                 : filtered.length === 0
                 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-16 text-center">
-                      <div className="flex flex-col items-center gap-3">
-                        <Package className="w-16 h-16 text-warm-300" strokeWidth={1.25} />
-                        <p className="font-heading text-xl text-warm-800">
-                          {search ? "No products found" : "Nothing here yet"}
-                        </p>
-                        <p className="text-sm text-warm-400">
-                          {search
+                    <td colSpan={7}>
+                      <EmptyState
+                        icon={Package}
+                        heading={search ? "No products found" : "Nothing here yet"}
+                        subtext={
+                          search
                             ? `No products matching "${search}"`
-                            : "No products in this category."}
-                        </p>
-                      </div>
+                            : "No products in this category."
+                        }
+                      />
                     </td>
                   </tr>
                 )

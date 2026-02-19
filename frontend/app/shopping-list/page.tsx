@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import { ShoppingCart, Trash2 } from "lucide-react";
+import { ErrorState, EmptyState } from "@/components/ui";
 import {
   getShoppingLists,
   getShoppingList,
@@ -269,11 +270,7 @@ export default function ShoppingListPage() {
       )}
 
       {/* Error banner */}
-      {error && (
-        <div className="text-sm text-status-out bg-[#FDEAE5] border border-[#E8C4BB] rounded-xl px-4 py-3">
-          {error}
-        </div>
-      )}
+      {error && <ErrorState message={error} />}
 
       {/* Body: sidebar + main */}
       {loadingLists ? (
@@ -354,9 +351,8 @@ export default function ShoppingListPage() {
 
                 {/* Item list */}
                 {items.length === 0 ? (
-                  <div className="bg-white rounded-2xl border border-linen p-8 shadow-card flex flex-col items-center text-center gap-3">
-                    <ShoppingCart className="w-10 h-10 text-warm-300" strokeWidth={1.25} />
-                    <p className="text-sm text-warm-500">No items yet. Add one below.</p>
+                  <div className="bg-white rounded-2xl border border-linen shadow-card">
+                    <EmptyState compact icon={ShoppingCart} heading="No items yet" subtext="Add one below." />
                   </div>
                 ) : (
                   <div className="bg-white rounded-2xl border border-linen p-6 shadow-card flex flex-col gap-0">

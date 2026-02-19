@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { ChefHat, Bookmark } from "lucide-react";
+import { EmptyState, ErrorState, LoadingSpinner } from "@/components/ui";
 import {
   suggestMeals,
   getMealSuggestions,
@@ -45,23 +46,6 @@ function ButtonSpinner() {
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
     </svg>
-  );
-}
-
-function SageSpinner({ message }: { message: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-12 gap-3">
-      <svg
-        className="w-8 h-8 animate-spin text-sage-500"
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 24 24"
-      >
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-      </svg>
-      <p className="text-warm-500 text-sm">{message}</p>
-    </div>
   );
 }
 
@@ -443,15 +427,11 @@ export default function MealPlannerPage() {
             </button>
           </div>
 
-          {suggestError && (
-            <div className="text-sm text-status-out bg-[#FDEAE5] border border-[#E8C4BB] rounded-xl px-4 py-3">
-              {suggestError}
-            </div>
-          )}
+          {suggestError && <ErrorState message={suggestError} />}
 
           {/* Loading state during generation */}
           {suggesting && (
-            <SageSpinner message="Finding the perfect meals for your pantry…" />
+            <LoadingSpinner message="Finding the perfect meals for your pantry…" />
           )}
 
           {!suggesting && suggestions.length > 0 && (
@@ -469,16 +449,11 @@ export default function MealPlannerPage() {
 
           {/* Empty state */}
           {!suggesting && suggestions.length === 0 && !suggestError && (
-            <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-              <ChefHat className="w-16 h-16 text-warm-300" strokeWidth={1.25} />
-              <div>
-                <p className="font-heading text-xl text-warm-700 mb-1">What shall we cook?</p>
-                <p className="text-warm-500 text-sm">
-                  Tap &ldquo;Get Suggestions&rdquo; and we&apos;ll find delicious meals
-                  <br className="hidden sm:inline" /> you can make with what&apos;s already in your pantry.
-                </p>
-              </div>
-            </div>
+            <EmptyState
+              icon={ChefHat}
+              heading="What shall we cook?"
+              subtext={`Tap "Get Suggestions" and we'll find delicious meals you can make with what's already in your pantry.`}
+            />
           )}
         </div>
       )}
@@ -487,25 +462,17 @@ export default function MealPlannerPage() {
       {tab === "history" && (
         <div className="flex flex-col gap-4">
           {loadingHistory && (
-            <SageSpinner message="Loading your meal history…" />
+            <LoadingSpinner message="Loading your meal history…" />
           )}
 
-          {historyError && (
-            <div className="text-sm text-status-out bg-[#FDEAE5] border border-[#E8C4BB] rounded-xl px-4 py-3">
-              {historyError}
-            </div>
-          )}
+          {historyError && <ErrorState message={historyError} />}
 
           {!loadingHistory && !historyError && history.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-              <ChefHat className="w-16 h-16 text-warm-300" strokeWidth={1.25} />
-              <div>
-                <p className="font-heading text-xl text-warm-700 mb-1">No history yet</p>
-                <p className="text-warm-500 text-sm">
-                  Generate some suggestions in the Suggest tab to build your meal history.
-                </p>
-              </div>
-            </div>
+            <EmptyState
+              icon={ChefHat}
+              heading="No history yet"
+              subtext="Generate some suggestions in the Suggest tab to build your meal history."
+            />
           )}
 
           {history.length > 0 && (

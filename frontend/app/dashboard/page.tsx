@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Camera, ShoppingCart, ChefHat } from "lucide-react";
 import { getInventory, getShoppingLists, ShoppingList } from "@/lib/api";
+import { ErrorState } from "@/components/ui";
 
 interface InventoryItem {
   id: number;
@@ -143,8 +144,8 @@ export default function DashboardPage() {
       <p className="text-base text-warm-500 mb-8">Your pantry at a glance.</p>
 
       {error && (
-        <div className="mb-6 bg-[#FDEAE5] border border-[#E8C4BB] text-status-out text-sm rounded-xl px-4 py-3">
-          Could not load inventory data: {error}
+        <div className="mb-6">
+          <ErrorState message={`Could not load inventory data: ${error}`} />
         </div>
       )}
 

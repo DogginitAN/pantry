@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { BarChart3 } from "lucide-react";
+import { EmptyState } from "@/components/ui";
 import {
   getMonthlySpending,
   getCategorySpending,
@@ -183,15 +184,12 @@ export default function SpendingPage() {
     return (
       <div className="p-6 animate-fade-in-up">
         <h1 className="font-heading text-2xl text-warm-900 mb-8">Spending Analytics</h1>
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="w-20 h-20 rounded-full bg-sage-50 flex items-center justify-center mb-5">
-            <BarChart3 className="w-10 h-10 text-sage-400" strokeWidth={1.25} />
-          </div>
-          <h2 className="font-heading text-xl text-warm-800 mb-2">No spending data yet</h2>
-          <p className="text-warm-500 text-sm max-w-xs">
-            Start scanning your grocery receipts and your spending breakdown will appear here — by category, month, and top items.
-          </p>
-        </div>
+        <EmptyState
+          icon={BarChart3}
+          heading="No spending data yet"
+          subtext="Start scanning your grocery receipts and your spending breakdown will appear here — by category, month, and top items."
+          action={{ label: "Scan Receipt", href: "/receipts" }}
+        />
       </div>
     );
   }
@@ -361,10 +359,12 @@ export default function SpendingPage() {
         {categoriesError ? (
           <p className="text-xs text-warm-400">Failed to load</p>
         ) : categories && categories.length === 0 ? (
-          <div className="flex flex-col items-center py-8 text-center">
-            <BarChart3 className="w-10 h-10 text-warm-300 mb-3" strokeWidth={1.25} />
-            <p className="text-warm-500 text-sm">No category data yet — scan a receipt to get started.</p>
-          </div>
+          <EmptyState
+            compact
+            icon={BarChart3}
+            heading="No category data yet"
+            subtext="Scan a receipt to get started."
+          />
         ) : (
           <div className="space-y-3">
             {(categories ?? []).map((cat, i) => {

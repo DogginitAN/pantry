@@ -4,6 +4,7 @@ import { useRef, useState, useEffect } from "react";
 import Link from "next/link";
 import { Upload, Camera, Receipt as ReceiptIcon } from "lucide-react";
 import { uploadReceipt, getReceipts, Receipt } from "@/lib/api";
+import { EmptyState, LoadingSpinner } from "@/components/ui";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -225,13 +226,11 @@ export default function ReceiptsPage() {
           <div className="mt-8 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
             <h2 className="font-heading text-xl text-warm-800 mb-4">Past Receipts</h2>
             {receipts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <ReceiptIcon className="w-16 h-16 text-warm-300 mb-4" strokeWidth={1.25} />
-                <h3 className="font-heading text-xl text-warm-800 mb-2">No receipts yet</h3>
-                <p className="text-sm text-warm-500 max-w-xs">
-                  Upload your first receipt above to start tracking your grocery spending.
-                </p>
-              </div>
+              <EmptyState
+                icon={ReceiptIcon}
+                heading="No receipts yet"
+                subtext="Upload your first receipt above to start tracking your grocery spending."
+              />
             ) : (
               <div className="space-y-3">
                 {receipts.map((receipt) => (
@@ -268,9 +267,8 @@ export default function ReceiptsPage() {
 
       {/* ── Uploading ─────────────────────────────────────────────────────── */}
       {stage === "uploading" && (
-        <div className="flex flex-col items-center justify-center gap-4 py-20">
-          <div className="w-6 h-6 border-2 border-sage-200 border-t-sage-500 rounded-full animate-spin" />
-          <p className="text-warm-500">Processing receipt…</p>
+        <div className="py-12">
+          <LoadingSpinner message="Processing receipt…" />
         </div>
       )}
 
@@ -356,9 +354,8 @@ export default function ReceiptsPage() {
 
       {/* ── Saving ────────────────────────────────────────────────────────── */}
       {stage === "saving" && (
-        <div className="flex flex-col items-center justify-center gap-4 py-20">
-          <div className="w-6 h-6 border-2 border-sage-200 border-t-sage-500 rounded-full animate-spin" />
-          <p className="text-warm-500">Saving to inventory…</p>
+        <div className="py-12">
+          <LoadingSpinner message="Saving to inventory…" />
         </div>
       )}
 
