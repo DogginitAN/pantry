@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Camera, ShoppingCart, ChefHat } from "lucide-react";
 import { getInventory, getShoppingLists, ShoppingList } from "@/lib/api";
 
 interface InventoryItem {
@@ -53,12 +54,12 @@ function StatCard({
   loading: boolean;
 }) {
   return (
-    <div className="bg-zinc-900 rounded-xl p-5 flex flex-col gap-1 border border-zinc-800">
-      <span className="text-zinc-400 text-sm font-medium">{label}</span>
+    <div className="bg-white rounded-2xl border border-linen p-6 shadow-card hover:shadow-card-hover transition-shadow duration-300 flex flex-col gap-1">
+      <span className="text-warm-500 text-sm font-medium">{label}</span>
       {loading ? (
-        <div className="h-8 w-16 bg-zinc-800 rounded animate-pulse mt-1" />
+        <div className="h-8 w-16 bg-warm-200 rounded-lg animate-pulse mt-1" />
       ) : (
-        <span className={`text-3xl font-bold ${colorClass}`}>{value ?? "—"}</span>
+        <span className={`font-heading text-2xl text-warm-900 ${colorClass}`}>{value ?? "—"}</span>
       )}
     </div>
   );
@@ -66,27 +67,26 @@ function StatCard({
 
 function AlertCard({ item }: { item: InventoryItem }) {
   const isOut = item.status === "out";
-  const borderColor = isOut ? "border-red-800" : "border-amber-800";
-  const badgeColor = isOut
-    ? "bg-red-900 text-red-300"
-    : "bg-amber-900 text-amber-300";
+  const badgeBg = isOut ? "bg-[#FDEAE5]" : "bg-[#FFF3E0]";
+  const badgeText = isOut ? "text-status-out" : "text-status-low";
   const badgeLabel = isOut ? "Out of Stock" : "Running Low";
+  const dateColor = isOut ? "text-status-out" : "text-status-low";
 
   return (
-    <div className={`bg-zinc-900 rounded-xl p-4 border ${borderColor}`}>
+    <div className="bg-white rounded-xl border border-linen p-4 shadow-soft">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-zinc-100 font-medium truncate">{item.name}</p>
-          <p className="text-zinc-500 text-xs mt-0.5">{item.category ?? "Uncategorized"}</p>
+          <p className="text-warm-800 font-medium truncate">{item.name}</p>
+          <p className="text-warm-500 text-xs mt-0.5">{item.category ?? "Uncategorized"}</p>
         </div>
-        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${badgeColor}`}>
+        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${badgeBg} ${badgeText}`}>
           {badgeLabel}
         </span>
       </div>
-      <div className="mt-3 flex gap-4 text-xs text-zinc-400">
+      <div className="mt-3 flex gap-4 text-xs text-warm-500">
         <span>
           Last bought:{" "}
-          <span className="text-zinc-300">
+          <span className="text-warm-700">
             {item.days_since_last_purchase != null
               ? `${item.days_since_last_purchase}d ago`
               : "Never"}
@@ -94,7 +94,7 @@ function AlertCard({ item }: { item: InventoryItem }) {
         </span>
         <span>
           Est. out:{" "}
-          <span className={isOut ? "text-red-400" : "text-amber-400"}>
+          <span className={dateColor}>
             {formatPredictedDate(item.predicted_out_date)}
           </span>
         </span>
@@ -139,64 +139,64 @@ export default function DashboardPage() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold text-zinc-100 mb-1">Dashboard</h1>
-      <p className="text-zinc-500 text-sm mb-8">Your pantry at a glance.</p>
+      <h1 className="font-heading text-2xl text-warm-900 mb-1">Dashboard</h1>
+      <p className="text-base text-warm-500 mb-8">Your pantry at a glance.</p>
 
       {error && (
-        <div className="mb-6 bg-red-950 border border-red-800 text-red-300 text-sm rounded-lg px-4 py-3">
+        <div className="mb-6 bg-[#FDEAE5] border border-[#E8C4BB] text-status-out text-sm rounded-xl px-4 py-3">
           Could not load inventory data: {error}
         </div>
       )}
 
       <section className="mb-8">
-        <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">
+        <h2 className="font-heading text-xl text-warm-800 mb-3">
           Inventory Summary
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatCard label="Total Products" value={stats.total} colorClass="text-zinc-100" loading={loading} />
-          <StatCard label="In Stock" value={stats.stocked} colorClass="text-emerald-400" loading={loading} />
-          <StatCard label="Running Low" value={stats.low} colorClass="text-amber-400" loading={loading} />
-          <StatCard label="Out of Stock" value={stats.out} colorClass="text-red-400" loading={loading} />
+          <StatCard label="Total Products" value={stats.total} colorClass="" loading={loading} />
+          <StatCard label="In Stock" value={stats.stocked} colorClass="text-status-fresh" loading={loading} />
+          <StatCard label="Running Low" value={stats.low} colorClass="text-status-low" loading={loading} />
+          <StatCard label="Out of Stock" value={stats.out} colorClass="text-status-out" loading={loading} />
         </div>
       </section>
 
       <section className="mb-8">
-        <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">
+        <h2 className="font-heading text-xl text-warm-800 mb-3">
           Shopping Lists
         </h2>
         <div className="grid grid-cols-2 gap-3">
           <StatCard
             label="Open Lists"
             value={openListCount}
-            colorClass="text-sky-400"
+            colorClass=""
             loading={loading}
           />
           <StatCard
             label="Total Items"
             value={uncheckedItems}
-            colorClass="text-zinc-100"
+            colorClass=""
             loading={loading}
           />
         </div>
         {shoppingListsError && !loading && (
-          <p className="text-zinc-500 text-xs mt-2">Could not load shopping list data.</p>
+          <p className="text-warm-500 text-xs mt-2">Could not load shopping list data.</p>
         )}
       </section>
 
       <section className="mb-8">
-        <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">
+        <h2 className="font-heading text-xl text-warm-800 mb-3">
           Running Low Alerts
         </h2>
         {loading ? (
           <div className="grid gap-3 sm:grid-cols-2">
             {[1, 2, 3, 4].map((n) => (
-              <div key={n} className="bg-zinc-900 rounded-xl p-4 border border-zinc-800 h-20 animate-pulse" />
+              <div key={n} className="bg-warm-200 rounded-xl p-4 h-20 animate-pulse" />
             ))}
           </div>
         ) : lowItems.length === 0 ? (
-          <div className="bg-zinc-900 rounded-xl p-6 border border-zinc-800 text-center">
-            <p className="text-emerald-400 font-medium">All stocked up!</p>
-            <p className="text-zinc-500 text-sm mt-1">No items are predicted to run out soon.</p>
+          <div className="bg-white rounded-xl border border-linen p-6 shadow-soft text-center">
+            <p className="text-status-fresh font-medium">All stocked up!</p>
+            <p className="text-warm-500 text-sm mt-1">No items are predicted to run out soon.</p>
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
@@ -208,64 +208,64 @@ export default function DashboardPage() {
       </section>
 
       <section className="mb-8">
-        <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">
-          Spending Overview
+        <h2 className="font-heading text-xl text-warm-800 mb-3">
+          Spending
         </h2>
-        <div className="bg-zinc-900 rounded-xl p-5 border border-zinc-800">
+        <div className="bg-white rounded-2xl border border-linen p-6 shadow-card">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-zinc-400 text-sm">Monthly comparison</span>
-            <span className="text-xs text-zinc-600 italic">Spending analytics coming soon</span>
+            <span className="text-warm-500 text-sm">Monthly comparison</span>
+            <span className="text-xs text-warm-500 italic">Spending analytics coming soon</span>
           </div>
           <div className="flex gap-6 items-end h-20">
             <div className="flex flex-col items-center gap-1 flex-1">
-              <div className="w-full bg-zinc-700 rounded-t" style={{ height: "48px" }} />
-              <span className="text-xs text-zinc-500">Last month</span>
+              <div className="w-full bg-warm-200 rounded-t" style={{ height: "48px" }} />
+              <span className="text-xs text-warm-500">Last month</span>
             </div>
             <div className="flex flex-col items-center gap-1 flex-1">
-              <div className="w-full bg-emerald-700 rounded-t" style={{ height: "64px" }} />
-              <span className="text-xs text-zinc-400">This month</span>
+              <div className="w-full bg-sage-300 rounded-t" style={{ height: "64px" }} />
+              <span className="text-xs text-warm-500">This month</span>
             </div>
           </div>
-          <p className="text-zinc-600 text-xs mt-3 text-center">
+          <p className="text-warm-500 text-xs mt-3 text-center">
             Scan receipts to start tracking spend
           </p>
         </div>
       </section>
 
       <section>
-        <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">
+        <h2 className="font-heading text-xl text-warm-800 mb-3">
           Quick Actions
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Link
             href="/receipts"
-            className="bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-700 transition-colors rounded-xl p-5 flex flex-col gap-2 group"
+            className="bg-white rounded-2xl border border-linen p-5 hover:shadow-card-hover transition-shadow duration-300 flex flex-col gap-2"
           >
-            <span className="text-2xl">📷</span>
-            <span className="text-zinc-100 font-medium group-hover:text-emerald-400 transition-colors">
+            <Camera className="w-6 h-6 text-sage-500" strokeWidth={1.75} />
+            <span className="text-warm-800 font-medium">
               Scan Receipt
             </span>
-            <span className="text-zinc-500 text-xs">Upload a receipt to update inventory</span>
+            <span className="text-warm-500 text-sm">Upload a receipt to update inventory</span>
           </Link>
           <Link
             href="/shopping-list"
-            className="bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-700 transition-colors rounded-xl p-5 flex flex-col gap-2 group"
+            className="bg-white rounded-2xl border border-linen p-5 hover:shadow-card-hover transition-shadow duration-300 flex flex-col gap-2"
           >
-            <span className="text-2xl">🛒</span>
-            <span className="text-zinc-100 font-medium group-hover:text-emerald-400 transition-colors">
+            <ShoppingCart className="w-6 h-6 text-sage-500" strokeWidth={1.75} />
+            <span className="text-warm-800 font-medium">
               View Shopping List
             </span>
-            <span className="text-zinc-500 text-xs">Auto-generated from your burn rates</span>
+            <span className="text-warm-500 text-sm">Auto-generated from your burn rates</span>
           </Link>
           <Link
             href="/meal-planner"
-            className="bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-700 transition-colors rounded-xl p-5 flex flex-col gap-2 group"
+            className="bg-white rounded-2xl border border-linen p-5 hover:shadow-card-hover transition-shadow duration-300 flex flex-col gap-2"
           >
-            <span className="text-2xl">🍽️</span>
-            <span className="text-zinc-100 font-medium group-hover:text-emerald-400 transition-colors">
+            <ChefHat className="w-6 h-6 text-sage-500" strokeWidth={1.75} />
+            <span className="text-warm-800 font-medium">
               Get Meal Ideas
             </span>
-            <span className="text-zinc-500 text-xs">AI suggestions from your pantry</span>
+            <span className="text-warm-500 text-sm">AI suggestions from your pantry</span>
           </Link>
         </div>
       </section>
