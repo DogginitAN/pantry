@@ -121,21 +121,53 @@ export function uploadReceipt(formData: FormData) {
   });
 }
 
-// Spending
-export function getSpending(months?: number) {
-  const qs = months ? `?months=${months}` : "";
-  return apiFetch<unknown>(`/spending${qs}`);
+// Spending analytics types
+export type MonthlySpend = {
+  month: string;
+  total: number;
+  receipt_count: number;
+};
+
+export type CategorySpend = {
+  category: string;
+  total: number;
+  item_count: number;
+  pct_of_total: number;
+};
+
+export type TopItem = {
+  canonical_name: string;
+  category: string;
+  total_spend: number;
+  purchase_count: number;
+};
+
+export type BudgetSettings = {
+  monthly_budget: number | null;
+};
+
+// Spending analytics
+export function getMonthlySpending(): Promise<MonthlySpend[]> {
+  return apiFetch<MonthlySpend[]>("/spending/monthly");
 }
 
-// Settings
-export function getSettings() {
-  return apiFetch<Record<string, string>>("/settings");
+export function getCategorySpending(): Promise<CategorySpend[]> {
+  return apiFetch<CategorySpend[]>("/spending/by-category");
 }
 
-export function updateSetting(key: string, value: string) {
-  return apiFetch<unknown>(`/settings/${key}`, {
-    method: "PUT",
-    body: JSON.stringify({ value }),
+export function getTopItems(limit?: number): Promise<TopItem[]> {
+  const qs = limit !== undefined ? `?limit=${limit}` : "";
+  return apiFetch<TopItem[]>(`/spending/top-items${qs}`);
+}
+
+export function getBudget(): Promise<BudgetSettings> {
+  return apiFetch<BudgetSettings>("/settings/budget");
+}
+
+export function setBudget(monthly_budget: number | null): Promise<BudgetSettings> {
+  return apiFetch<BudgetSettings>("/settings/budget", {
+    method: "POST",
+    body: JSON.stringify({ monthly_budget }),
   });
 }
 
