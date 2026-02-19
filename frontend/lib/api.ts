@@ -222,3 +222,51 @@ export function classifyItem(name: string) {
     body: JSON.stringify({ name }),
   });
 }
+
+// AI provider settings
+export type AISettings = {
+  provider: "local" | "cloud";
+  ollama_base_url: string;
+  ollama_model: string;
+  cloud_model: string;
+};
+
+export function getAISettings(): Promise<AISettings> {
+  return apiFetch<AISettings>("/settings/ai-provider");
+}
+
+export function updateAISettings(patch: Partial<AISettings>): Promise<AISettings> {
+  return apiFetch<AISettings>("/settings/ai-provider", {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+// Data export
+export async function exportJSON(): Promise<void> {
+  const res = await fetch(`${BASE_URL}/export/json`);
+  if (!res.ok) throw new Error(`Export error ${res.status}: ${res.statusText}`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "pantry_export.json";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 100);
+}
+
+export async function exportCSV(): Promise<void> {
+  const res = await fetch(`${BASE_URL}/export/csv`);
+  if (!res.ok) throw new Error(`Export error ${res.status}: ${res.statusText}`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "pantry_export.csv";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 100);
+}
