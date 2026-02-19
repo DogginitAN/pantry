@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getInventory } from "@/lib/api";
+import { getInventory, getShoppingLists, ShoppingList } from "@/lib/api";
 
 interface InventoryItem {
   id: number;
@@ -48,7 +48,7 @@ function StatCard({
   loading,
 }: {
   label: string;
-  value: number;
+  value: number | null;
   colorClass: string;
   loading: boolean;
 }) {
@@ -58,7 +58,7 @@ function StatCard({
       {loading ? (
         <div className="h-8 w-16 bg-zinc-800 rounded animate-pulse mt-1" />
       ) : (
-        <span className={`text-3xl font-bold ${colorClass}`}>{value}</span>
+        <span className={`text-3xl font-bold ${colorClass}`}>{value ?? "—"}</span>
       )}
     </div>
   );
@@ -105,18 +105,37 @@ function AlertCard({ item }: { item: InventoryItem }) {
 
 export default function DashboardPage() {
   const [items, setItems] = useState<InventoryItem[]>([]);
+  const [shoppingLists, setShoppingLists] = useState<ShoppingList[]>([]);
+  const [shoppingListsError, setShoppingListsError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getInventory()
-      .then((data) => setItems(data as InventoryItem[]))
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
+    Promise.allSettled([getInventory(), getShoppingLists()]).then(
+      ([invResult, listsResult]) => {
+        if (invResult.status === "fulfilled") {
+          setItems(invResult.value as InventoryItem[]);
+        } else {
+          setError((invResult.reason as Error)?.message ?? "Failed to load inventory");
+        }
+        if (listsResult.status === "fulfilled") {
+          setShoppingLists(listsResult.value);
+        } else {
+          setShoppingListsError(true);
+        }
+        setLoading(false);
+      }
+    );
   }, []);
 
   const stats = computeStats(items);
   const lowItems = items.filter((i) => i.status === "low" || i.status === "out");
+
+  const openLists = shoppingLists.filter((l) => l.completed_at === null);
+  const openListCount = shoppingListsError ? null : openLists.length;
+  const uncheckedItems = shoppingListsError
+    ? null
+    : openLists.reduce((sum, l) => sum + (l.item_count ?? 0), 0);
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -139,6 +158,29 @@ export default function DashboardPage() {
           <StatCard label="Running Low" value={stats.low} colorClass="text-amber-400" loading={loading} />
           <StatCard label="Out of Stock" value={stats.out} colorClass="text-red-400" loading={loading} />
         </div>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">
+          Shopping Lists
+        </h2>
+        <div className="grid grid-cols-2 gap-3">
+          <StatCard
+            label="Open Lists"
+            value={openListCount}
+            colorClass="text-sky-400"
+            loading={loading}
+          />
+          <StatCard
+            label="Items Needed"
+            value={uncheckedItems}
+            colorClass="text-zinc-100"
+            loading={loading}
+          />
+        </div>
+        {shoppingListsError && !loading && (
+          <p className="text-zinc-500 text-xs mt-2">Could not load shopping list data.</p>
+        )}
       </section>
 
       <section className="mb-8">
