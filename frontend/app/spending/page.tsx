@@ -178,29 +178,31 @@ export default function SpendingPage() {
         {monthlyError ? (
           <p className="text-xs text-zinc-500">Failed to load</p>
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-zinc-400 text-left border-b border-zinc-700">
-                <th className="py-2 pr-4 font-medium">Month</th>
-                <th className="py-2 pr-4 font-medium">Receipts</th>
-                <th className="py-2 font-medium">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tableRows.map((row) => (
-                <tr
-                  key={row.month}
-                  className={`border-b border-zinc-800 ${
-                    row.month === currentMonthKey ? "bg-zinc-700" : ""
-                  }`}
-                >
-                  <td className="py-2 pr-4 text-zinc-200">{formatMonth(row.month)}</td>
-                  <td className="py-2 pr-4 text-zinc-300">{row.receipt_count}</td>
-                  <td className="py-2 text-zinc-100 font-mono">${row.total.toFixed(2)}</td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-zinc-400 text-left border-b border-zinc-700">
+                  <th className="py-2 pr-4 font-medium whitespace-nowrap">Month</th>
+                  <th className="py-2 pr-4 font-medium whitespace-nowrap">Receipts</th>
+                  <th className="py-2 font-medium whitespace-nowrap">Total</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {tableRows.map((row) => (
+                  <tr
+                    key={row.month}
+                    className={`border-b border-zinc-800 ${
+                      row.month === currentMonthKey ? "bg-zinc-700" : ""
+                    }`}
+                  >
+                    <td className="py-2 pr-4 text-zinc-200 whitespace-nowrap">{formatMonth(row.month)}</td>
+                    <td className="py-2 pr-4 text-zinc-300 whitespace-nowrap">{row.receipt_count}</td>
+                    <td className="py-2 text-zinc-100 font-mono whitespace-nowrap">${row.total.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 
@@ -242,25 +244,25 @@ export default function SpendingPage() {
         {topItemsError ? (
           <p className="text-xs text-zinc-500">Failed to load</p>
         ) : (
-          <div className="max-h-64 overflow-y-auto rounded border border-zinc-800">
+          <div className="max-h-64 overflow-x-auto overflow-y-auto rounded border border-zinc-800">
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-zinc-900 z-10">
                 <tr className="text-zinc-400 text-left border-b border-zinc-700">
-                  <th className="py-2 px-3 font-medium">Product</th>
-                  <th className="py-2 px-3 font-medium">Category</th>
-                  <th className="py-2 px-3 font-medium">Total Spent</th>
-                  <th className="py-2 px-3 font-medium"># Purchases</th>
+                  <th className="py-2 px-3 font-medium whitespace-nowrap">Product</th>
+                  <th className="py-2 px-3 font-medium whitespace-nowrap">Category</th>
+                  <th className="py-2 px-3 font-medium whitespace-nowrap">Total Spent</th>
+                  <th className="py-2 px-3 font-medium whitespace-nowrap"># Purchases</th>
                 </tr>
               </thead>
               <tbody>
                 {(topItems ?? []).map((item, i) => (
                   <tr key={i} className="border-b border-zinc-800 hover:bg-zinc-800/40">
-                    <td className="py-2 px-3 text-zinc-200">{item.canonical_name}</td>
-                    <td className="py-2 px-3 text-zinc-400">{item.category}</td>
-                    <td className="py-2 px-3 text-zinc-100 font-mono">
+                    <td className="py-2 px-3 text-zinc-200 whitespace-nowrap">{item.canonical_name}</td>
+                    <td className="py-2 px-3 text-zinc-400 whitespace-nowrap">{item.category}</td>
+                    <td className="py-2 px-3 text-zinc-100 font-mono whitespace-nowrap">
                       ${item.total_spend.toFixed(2)}
                     </td>
-                    <td className="py-2 px-3 text-zinc-300">{item.purchase_count}</td>
+                    <td className="py-2 px-3 text-zinc-300 whitespace-nowrap">{item.purchase_count}</td>
                   </tr>
                 ))}
                 {(topItems ?? []).length === 0 && (

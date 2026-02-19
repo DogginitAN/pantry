@@ -295,14 +295,14 @@ export default function ShoppingListPage() {
           </div>
         </div>
       ) : (
-        <div className="flex gap-4 flex-1 min-h-0">
-          {/* Sidebar */}
-          <aside className="w-56 shrink-0 flex flex-col gap-1">
+        <div className="flex flex-col md:flex-row gap-4 flex-1 min-h-0">
+          {/* Sidebar — horizontal scroll tabs on mobile, vertical list on md+ */}
+          <aside className="md:w-56 shrink-0 flex flex-nowrap overflow-x-auto md:flex-col gap-1 pb-1 md:pb-0">
             {lists.map((list) => (
               <button
                 key={list.id}
                 onClick={() => setActiveListId(list.id)}
-                className={`text-left px-3 py-2.5 rounded-lg transition-colors ${
+                className={`shrink-0 text-left px-3 py-2.5 rounded-lg transition-colors ${
                   list.id === activeListId
                     ? "bg-zinc-700 text-zinc-100"
                     : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
@@ -388,8 +388,8 @@ export default function ShoppingListPage() {
                   </div>
                 )}
 
-                {/* Add item row */}
-                <div className="flex items-center gap-2 mt-2">
+                {/* Add item row — stacks on mobile, row on sm+ */}
+                <div className="flex flex-col sm:flex-row gap-2 mt-2">
                   <input
                     type="text"
                     value={addName}
@@ -398,20 +398,22 @@ export default function ShoppingListPage() {
                     placeholder="Add item…"
                     className="flex-1 bg-zinc-800 border border-zinc-700 text-zinc-100 placeholder-zinc-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-zinc-500"
                   />
-                  <input
-                    type="number"
-                    value={addQty}
-                    min={1}
-                    onChange={(e) => setAddQty(Math.max(1, Number(e.target.value)))}
-                    className="w-16 bg-zinc-800 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-sm text-center focus:outline-none focus:ring-1 focus:ring-zinc-500"
-                  />
-                  <button
-                    onClick={handleAddItem}
-                    disabled={adding || !addName.trim()}
-                    className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed text-zinc-100 text-sm rounded-lg transition-colors"
-                  >
-                    {adding ? "Adding…" : "Add"}
-                  </button>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      value={addQty}
+                      min={1}
+                      onChange={(e) => setAddQty(Math.max(1, Number(e.target.value)))}
+                      className="w-16 bg-zinc-800 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-sm text-center focus:outline-none focus:ring-1 focus:ring-zinc-500"
+                    />
+                    <button
+                      onClick={handleAddItem}
+                      disabled={adding || !addName.trim()}
+                      className="flex-1 sm:flex-none px-4 py-2 bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed text-zinc-100 text-sm rounded-lg transition-colors"
+                    >
+                      {adding ? "Adding…" : "Add"}
+                    </button>
+                  </div>
                 </div>
               </>
             ) : null}

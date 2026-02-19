@@ -369,8 +369,8 @@ export default function MealPlannerPage() {
     <div className="flex flex-col gap-6">
       <h1 className="text-2xl font-bold text-zinc-100">Meal Planner</h1>
 
-      {/* Tab bar */}
-      <div className="flex gap-1 border-b border-zinc-800">
+      {/* Tab bar — overflow-x-auto so tabs don't cause horizontal page scroll */}
+      <div className="flex overflow-x-auto flex-nowrap gap-1 border-b border-zinc-800">
         {(["suggest", "history"] as Tab[]).map((t) => (
           <button
             key={t}
@@ -389,11 +389,12 @@ export default function MealPlannerPage() {
       {/* ── Suggest tab ── */}
       {tab === "suggest" && (
         <div className="flex flex-col gap-4">
-          <div>
+          {/* Button row — flex-col on mobile so button is full-width, sm:flex-row for side-by-side if more controls are added */}
+          <div className="flex flex-col sm:flex-row gap-2">
             <button
               onClick={handleSuggest}
               disabled={suggesting}
-              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+              className="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
             >
               {suggesting && <SpinnerIcon />}
               {suggesting ? "Thinking…" : "Get Suggestions"}
