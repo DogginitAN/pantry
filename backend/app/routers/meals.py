@@ -156,6 +156,22 @@ def toggle_save(suggestion_id: int, db: Session = Depends(get_db)):
 @router.post("/suggestions/{suggestion_id}/add-to-list")
 def add_to_list(suggestion_id: int, body: AddToListRequest, db: Session = Depends(get_db)):
     """Add meal ingredients to a shopping list."""
+    # Validate that the suggestion exists
+    suggestion = db.execute(
+        text("SELECT id FROM meal_suggestions WHERE id = :id"),
+        {"id": suggestion_id},
+    ).mappings().one_or_none()
+    if suggestion is None:
+        raise HTTPException(status_code=404, detail="Suggestion not found")
+
+    # Validate that the shopping list exists
+    shopping_list = db.execute(
+        text("SELECT id FROM shopping_lists WHERE id = :id"),
+        {"id": body.list_id},
+    ).mappings().one_or_none()
+    if shopping_list is None:
+        raise HTTPException(status_code=404, detail="Shopping list not found")
+
     added = 0
     for item in body.ingredients:
         name = item.get("name", "").strip()
