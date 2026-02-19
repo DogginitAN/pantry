@@ -11,7 +11,6 @@ const navItems = [
   { label: "Meal Planner", href: "/meal-planner" },
   { label: "Spending", href: "/spending" },
   { label: "Settings", href: "/settings" },
-  { label: "About", href: "/about" },
 ];
 
 export default function Sidebar() {
