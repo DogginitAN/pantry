@@ -97,7 +97,7 @@ export default function SpendingPage() {
 
   async function handleBudgetSave() {
     const trimmed = budgetInput.trim();
-    const newBudget = trimmed === "" ? null : parseFloat(trimmed);
+    const newBudget = trimmed === "" ? null : Number(trimmed);
     if (trimmed !== "" && isNaN(newBudget as number)) {
       setEditingBudget(false);
       return;
@@ -139,9 +139,11 @@ export default function SpendingPage() {
                   onChange={(e) => setBudgetInput(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleBudgetSave();
-                    if (e.key === "Escape") setEditingBudget(false);
+                    if (e.key === "Escape") {
+                      setBudgetInput(String(budget?.monthly_budget ?? ""));
+                      setEditingBudget(false);
+                    }
                   }}
-                  onBlur={handleBudgetSave}
                 />
               ) : (
                 <button
