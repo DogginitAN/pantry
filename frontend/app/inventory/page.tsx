@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useMemo } from "react";
-import { Search, Package, ChevronRight } from "lucide-react";
+import { Search, Package, ChevronRight, ChevronDown, ChevronUp, ChevronLeft, ChevronsUpDown } from "lucide-react";
 import { getInventory } from "@/lib/api";
 import { EmptyState, ErrorState } from "@/components/ui";
 
@@ -18,6 +18,10 @@ interface InventoryItem {
 }
 
 type FilterTab = "all" | "stocked" | "low" | "out";
+type SortCol = "name" | "category" | "last_purchased" | "avg_interval_days";
+type SortDir = "asc" | "desc";
+
+const PAGE_SIZE = 50;
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -46,6 +50,15 @@ function formatProfile(profile: string | null): string {
   return profile.charAt(0).toUpperCase() + profile.slice(1);
 }
 
+function compareNullable<T>(a: T | null, b: T | null, dir: SortDir): number {
+  if (a == null && b == null) return 0;
+  if (a == null) return 1;
+  if (b == null) return -1;
+  if (a < b) return dir === "asc" ? -1 : 1;
+  if (a > b) return dir === "asc" ? 1 : -1;
+  return 0;
+}
+
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: InventoryItem["status"] }) {
@@ -59,6 +72,40 @@ function StatusBadge({ status }: { status: InventoryItem["status"] }) {
     <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap ${className}`}>
       ● {label}
     </span>
+  );
+}
+
+function SortIcon({ col, activeCol, dir }: { col: SortCol; activeCol: SortCol | null; dir: SortDir }) {
+  if (activeCol !== col) {
+    return <ChevronsUpDown className="w-3 h-3 text-warm-400 ml-1 inline-block" strokeWidth={1.75} />;
+  }
+  const Icon = dir === "asc" ? ChevronUp : ChevronDown;
+  return <Icon className="w-3 h-3 text-sage-600 ml-1 inline-block" strokeWidth={2} />;
+}
+
+function SortableHeader({
+  label,
+  col,
+  activeCol,
+  dir,
+  onSort,
+  className,
+}: {
+  label: string;
+  col: SortCol;
+  activeCol: SortCol | null;
+  dir: SortDir;
+  onSort: (col: SortCol) => void;
+  className?: string;
+}) {
+  return (
+    <th
+      className={`px-4 py-3 text-left text-xs font-medium text-warm-500 cursor-pointer select-none hover:text-warm-700 transition-colors duration-200 ${className ?? ""}`}
+      onClick={() => onSort(col)}
+    >
+      {label}
+      <SortIcon col={col} activeCol={activeCol} dir={dir} />
+    </th>
   );
 }
 
@@ -107,7 +154,7 @@ function ExpandedRow({ item }: { item: InventoryItem }) {
               <p className="text-warm-500 text-xs italic">
                 {item.avg_interval_days != null
                   ? `~${item.avg_interval_days.toFixed(1)}d avg between purchases`
-                  : "Insufficient purchase data"}
+                  : "No purchase history yet"}
               </p>
             </div>
           </div>
@@ -137,9 +184,13 @@ export default function InventoryPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkActionFeedback, setBulkActionFeedback] = useState<string | null>(null);
+  const [sortCol, setSortCol] = useState<SortCol | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [page, setPage] = useState(0);
 
   useEffect(() => {
     getInventory()
@@ -148,19 +199,57 @@ export default function InventoryPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  // ── Filtering ──────────────────────────────────────────────────────────────
+  // ── Categories ────────────────────────────────────────────────────────────
+
+  const categories = useMemo(() => {
+    const cats = new Set<string>();
+    items.forEach((i) => { if (i.category) cats.add(i.category); });
+    return Array.from(cats).sort();
+  }, [items]);
+
+  // ── Filtering + sorting ───────────────────────────────────────────────────
 
   const filtered = useMemo(() => {
     let result = items;
     if (activeTab !== "all") {
       result = result.filter((i) => i.status === activeTab);
     }
+    if (categoryFilter !== "all") {
+      result = result.filter((i) => i.category === categoryFilter);
+    }
     const q = search.trim().toLowerCase();
     if (q) {
       result = result.filter((i) => i.name.toLowerCase().includes(q));
     }
+    if (sortCol) {
+      result = [...result].sort((a, b) => {
+        switch (sortCol) {
+          case "name":
+            return compareNullable(a.name.toLowerCase(), b.name.toLowerCase(), sortDir);
+          case "category":
+            return compareNullable(a.category?.toLowerCase() ?? null, b.category?.toLowerCase() ?? null, sortDir);
+          case "last_purchased":
+            return compareNullable(a.days_since_last_purchase, b.days_since_last_purchase, sortDir);
+          case "avg_interval_days":
+            return compareNullable(a.avg_interval_days, b.avg_interval_days, sortDir);
+          default:
+            return 0;
+        }
+      });
+    }
     return result;
-  }, [items, activeTab, search]);
+  }, [items, activeTab, categoryFilter, search, sortCol, sortDir]);
+
+  // ── Pagination ────────────────────────────────────────────────────────────
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
+  const pageStart = safePage * PAGE_SIZE;
+  const pageEnd = Math.min(pageStart + PAGE_SIZE, filtered.length);
+  const pageItems = filtered.slice(pageStart, pageEnd);
+
+  // Reset page when filters change
+  useEffect(() => { setPage(0); }, [activeTab, categoryFilter, search, sortCol, sortDir]);
 
   const counts = useMemo(
     () => ({
@@ -171,6 +260,17 @@ export default function InventoryPage() {
     }),
     [items]
   );
+
+  // ── Sort handler ──────────────────────────────────────────────────────────
+
+  function handleSort(col: SortCol) {
+    if (sortCol === col) {
+      setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortCol(col);
+      setSortDir("asc");
+    }
+  }
 
   // ── Row selection ──────────────────────────────────────────────────────────
 
@@ -184,10 +284,10 @@ export default function InventoryPage() {
   }
 
   function toggleSelectAll() {
-    if (selectedIds.size === filtered.length && filtered.length > 0) {
+    if (selectedIds.size === pageItems.length && pageItems.length > 0) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(filtered.map((i) => i.id)));
+      setSelectedIds(new Set(pageItems.map((i) => i.id)));
     }
   }
 
@@ -237,7 +337,7 @@ export default function InventoryPage() {
         </div>
       )}
 
-      {/* Search + bulk actions bar */}
+      {/* Search + category filter + bulk actions bar */}
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
         <div className="relative flex-1">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-warm-400" strokeWidth={1.75} />
@@ -249,6 +349,16 @@ export default function InventoryPage() {
             className="w-full pl-10 pr-4 py-2.5 rounded-full border border-warm-300 bg-white text-warm-800 placeholder:text-warm-400 text-sm focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-sage-400 transition-all duration-200"
           />
         </div>
+        <select
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value)}
+          className="px-4 py-2.5 rounded-xl border border-warm-300 bg-white text-warm-800 text-sm focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-sage-400 transition-all duration-200 appearance-none"
+        >
+          <option value="all">All Categories</option>
+          {categories.map((cat) => (
+            <option key={cat} value={cat}>{cat}</option>
+          ))}
+        </select>
         {selectedIds.size > 0 && (
           <div className="flex items-center gap-2">
             <span className="text-warm-500 text-sm">{selectedIds.size} selected</span>
@@ -301,18 +411,18 @@ export default function InventoryPage() {
                 <th className="px-4 py-3 text-left w-10">
                   <input
                     type="checkbox"
-                    checked={selectedIds.size > 0 && selectedIds.size === filtered.length}
+                    checked={selectedIds.size > 0 && selectedIds.size === pageItems.length}
                     onChange={toggleSelectAll}
                     className="accent-sage-500 cursor-pointer"
                     aria-label="Select all"
                   />
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-warm-500">Name</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-warm-500 hidden sm:table-cell">Category</th>
+                <SortableHeader label="Name" col="name" activeCol={sortCol} dir={sortDir} onSort={handleSort} />
+                <SortableHeader label="Category" col="category" activeCol={sortCol} dir={sortDir} onSort={handleSort} className="hidden sm:table-cell" />
                 <th className="px-4 py-3 text-left text-xs font-medium text-warm-500 hidden md:table-cell">Profile</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-warm-500">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-warm-500 hidden lg:table-cell">Last Purchased</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-warm-500 hidden lg:table-cell">Avg Frequency</th>
+                <SortableHeader label="Last Purchased" col="last_purchased" activeCol={sortCol} dir={sortDir} onSort={handleSort} className="hidden lg:table-cell" />
+                <SortableHeader label="Avg Frequency" col="avg_interval_days" activeCol={sortCol} dir={sortDir} onSort={handleSort} className="hidden lg:table-cell" />
               </tr>
             </thead>
             <tbody>
@@ -334,7 +444,7 @@ export default function InventoryPage() {
                     </td>
                   </tr>
                 )
-                : filtered.map((item) => (
+                : pageItems.map((item) => (
                     <React.Fragment key={item.id}>
                       <tr
                         onClick={() =>
@@ -406,10 +516,34 @@ export default function InventoryPage() {
         </div>
       </div>
 
+      {/* Pagination */}
       {!loading && filtered.length > 0 && (
-        <p className="text-warm-400 text-xs mt-3 text-right">
-          {filtered.length} of {items.length} products shown
-        </p>
+        <div className="flex items-center justify-between mt-4">
+          <p className="text-warm-500 text-sm">
+            Showing {pageStart + 1}–{pageEnd} of {filtered.length}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={safePage === 0}
+              className="flex items-center gap-1 px-3 py-1.5 text-sm rounded-full border border-warm-300 text-warm-600 hover:bg-warm-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-200"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" strokeWidth={2} />
+              Prev
+            </button>
+            <span className="text-warm-500 text-sm">
+              {safePage + 1} / {totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={safePage >= totalPages - 1}
+              className="flex items-center gap-1 px-3 py-1.5 text-sm rounded-full border border-warm-300 text-warm-600 hover:bg-warm-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-200"
+            >
+              Next
+              <ChevronRight className="w-3.5 h-3.5" strokeWidth={2} />
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
