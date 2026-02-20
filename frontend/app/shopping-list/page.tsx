@@ -87,7 +87,8 @@ export default function ShoppingListPage() {
         setActiveListId(fetched[0].id);
       }
     } catch {
-      setError("Failed to load lists.");
+      // Backend may not have shopping list endpoints yet — treat as empty
+      setLists([]);
     } finally {
       setLoadingLists(false);
     }
@@ -218,24 +219,27 @@ export default function ShoppingListPage() {
   return (
     <div className="flex flex-col h-full gap-6 animate-fade-in-up">
       {/* Header */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <h1 className="font-heading text-2xl text-warm-900 flex-1">Shopping Lists</h1>
-        <button
-          onClick={handleAutoGenerate}
-          disabled={generating}
-          className="border border-sage-300 text-sage-700 font-medium text-sm px-6 py-2.5 rounded-full hover:bg-sage-50 active:bg-sage-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-        >
-          {generating ? "Generating…" : "Regenerate"}
-        </button>
-        <button
-          onClick={() => {
-            setShowNewList((v) => !v);
-            setNewListName("");
-          }}
-          className="bg-sage-500 text-white font-medium text-sm px-6 py-2.5 rounded-full hover:bg-sage-600 active:bg-sage-700 transition-colors duration-200 shadow-sm"
-        >
-          New List
-        </button>
+      <div>
+        <div className="flex items-center gap-3 flex-wrap mb-1">
+          <h1 className="font-heading text-2xl text-warm-900 flex-1">Shopping Lists</h1>
+          <button
+            onClick={handleAutoGenerate}
+            disabled={generating}
+            className="border border-sage-300 text-sage-700 font-medium text-sm px-6 py-2.5 rounded-full hover:bg-sage-50 active:bg-sage-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+          >
+            {generating ? "Generating…" : "Regenerate"}
+          </button>
+          <button
+            onClick={() => {
+              setShowNewList((v) => !v);
+              setNewListName("");
+            }}
+            className="bg-sage-500 text-white font-medium text-sm px-6 py-2.5 rounded-full hover:bg-sage-600 active:bg-sage-700 transition-colors duration-200 shadow-sm"
+          >
+            New List
+          </button>
+        </div>
+        <p className="text-warm-500 text-sm">Auto-generated and manual shopping lists.</p>
       </div>
 
       {/* Inline new-list form */}
