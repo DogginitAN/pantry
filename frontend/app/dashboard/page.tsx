@@ -2,7 +2,17 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Camera, ShoppingCart, ChefHat } from "lucide-react";
+import {
+  Camera,
+  ShoppingCart,
+  ChefHat,
+  Package,
+  CheckCircle,
+  AlertTriangle,
+  XCircle,
+  Clock,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { getInventory, getShoppingLists, ShoppingList } from "@/lib/api";
 import { ErrorState } from "@/components/ui";
 
@@ -48,19 +58,24 @@ function StatCard({
   value,
   colorClass,
   loading,
+  icon: Icon,
 }: {
   label: string;
   value: number | null;
   colorClass: string;
   loading: boolean;
+  icon?: LucideIcon;
 }) {
   return (
     <div className="bg-white rounded-2xl border border-linen p-6 shadow-card hover:shadow-card-hover transition-shadow duration-300 flex flex-col gap-1">
-      <span className="text-warm-500 text-sm font-medium">{label}</span>
+      <div className="flex items-center gap-1.5">
+        {Icon && <Icon className="w-4 h-4 text-sage-600" strokeWidth={1.75} />}
+        <span className="text-warm-500 text-sm font-medium">{label}</span>
+      </div>
       {loading ? (
         <div className="h-8 w-16 bg-warm-200 rounded-lg animate-pulse mt-1" />
       ) : (
-        <span className={`font-heading text-2xl text-warm-900 ${colorClass}`}>{value ?? "—"}</span>
+        <span className={`font-heading text-2xl text-warm-900 ${colorClass}`}>{value ?? 0}</span>
       )}
     </div>
   );
@@ -133,9 +148,9 @@ export default function DashboardPage() {
   const lowItems = items.filter((i) => i.status === "low" || i.status === "out");
 
   const openLists = shoppingLists.filter((l) => l.completed_at === null);
-  const openListCount = shoppingListsError ? null : openLists.length;
+  const openListCount = shoppingListsError ? 0 : openLists.length;
   const uncheckedItems = shoppingListsError
-    ? null
+    ? 0
     : openLists.reduce((sum, l) => sum + (l.item_count ?? 0), 0);
 
   return (
@@ -149,91 +164,21 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* Inventory Summary */}
       <section className="mb-8 animate-fade-in-up" style={{ animationDelay: "50ms" }}>
         <h2 className="font-heading text-xl text-warm-800 mb-3">
           Inventory Summary
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatCard label="Total Products" value={stats.total} colorClass="" loading={loading} />
-          <StatCard label="In Stock" value={stats.stocked} colorClass="text-status-fresh" loading={loading} />
-          <StatCard label="Running Low" value={stats.low} colorClass="text-status-low" loading={loading} />
-          <StatCard label="Out of Stock" value={stats.out} colorClass="text-status-out" loading={loading} />
+          <StatCard label="Total Products" value={stats.total} colorClass="" loading={loading} icon={Package} />
+          <StatCard label="In Stock" value={stats.stocked} colorClass="text-status-fresh" loading={loading} icon={CheckCircle} />
+          <StatCard label="Running Low" value={stats.low} colorClass="text-status-low" loading={loading} icon={AlertTriangle} />
+          <StatCard label="Out of Stock" value={stats.out} colorClass="text-status-out" loading={loading} icon={XCircle} />
         </div>
       </section>
 
+      {/* Quick Actions — visible without scrolling */}
       <section className="mb-8 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
-        <h2 className="font-heading text-xl text-warm-800 mb-3">
-          Shopping Lists
-        </h2>
-        <div className="grid grid-cols-2 gap-3">
-          <StatCard
-            label="Open Lists"
-            value={openListCount}
-            colorClass=""
-            loading={loading}
-          />
-          <StatCard
-            label="Total Items"
-            value={uncheckedItems}
-            colorClass=""
-            loading={loading}
-          />
-        </div>
-        {shoppingListsError && !loading && (
-          <p className="text-warm-500 text-xs mt-2">Could not load shopping list data.</p>
-        )}
-      </section>
-
-      <section className="mb-8 animate-fade-in-up" style={{ animationDelay: "150ms" }}>
-        <h2 className="font-heading text-xl text-warm-800 mb-3">
-          Running Low Alerts
-        </h2>
-        {loading ? (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {[1, 2, 3, 4].map((n) => (
-              <div key={n} className="bg-warm-200 rounded-xl p-4 h-20 animate-pulse" />
-            ))}
-          </div>
-        ) : lowItems.length === 0 ? (
-          <div className="bg-white rounded-xl border border-linen p-6 shadow-soft text-center">
-            <p className="text-status-fresh font-medium">All stocked up!</p>
-            <p className="text-warm-500 text-sm mt-1">No items are predicted to run out soon.</p>
-          </div>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {lowItems.map((item) => (
-              <AlertCard key={item.id} item={item} />
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="mb-8 animate-fade-in-up" style={{ animationDelay: "200ms" }}>
-        <h2 className="font-heading text-xl text-warm-800 mb-3">
-          Spending
-        </h2>
-        <div className="bg-white rounded-2xl border border-linen p-6 shadow-card">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-warm-500 text-sm">Monthly comparison</span>
-            <span className="text-xs text-warm-500 italic">Spending analytics coming soon</span>
-          </div>
-          <div className="flex gap-6 items-end h-20">
-            <div className="flex flex-col items-center gap-1 flex-1">
-              <div className="w-full bg-warm-200 rounded-t" style={{ height: "48px" }} />
-              <span className="text-xs text-warm-500">Last month</span>
-            </div>
-            <div className="flex flex-col items-center gap-1 flex-1">
-              <div className="w-full bg-sage-300 rounded-t" style={{ height: "64px" }} />
-              <span className="text-xs text-warm-500">This month</span>
-            </div>
-          </div>
-          <p className="text-warm-500 text-xs mt-3 text-center">
-            Scan receipts to start tracking spend
-          </p>
-        </div>
-      </section>
-
-      <section className="animate-fade-in-up" style={{ animationDelay: "250ms" }}>
         <h2 className="font-heading text-xl text-warm-800 mb-3">
           Quick Actions
         </h2>
@@ -268,6 +213,97 @@ export default function DashboardPage() {
             </span>
             <span className="text-warm-500 text-sm">AI suggestions from your pantry</span>
           </Link>
+        </div>
+      </section>
+
+      {/* Shopping Lists */}
+      <section className="mb-8 animate-fade-in-up" style={{ animationDelay: "150ms" }}>
+        <h2 className="font-heading text-xl text-warm-800 mb-3">
+          Shopping Lists
+        </h2>
+        <div className="grid grid-cols-2 gap-3">
+          <StatCard
+            label="Open Lists"
+            value={openListCount}
+            colorClass=""
+            loading={loading}
+          />
+          <StatCard
+            label="Total Items"
+            value={uncheckedItems}
+            colorClass=""
+            loading={loading}
+          />
+        </div>
+        {shoppingListsError && !loading && (
+          <p className="text-warm-500 text-xs mt-2">Could not load shopping list data.</p>
+        )}
+      </section>
+
+      {/* Running Low Alerts */}
+      <section className="mb-8 animate-fade-in-up" style={{ animationDelay: "200ms" }}>
+        <h2 className="font-heading text-xl text-warm-800 mb-3">
+          Running Low Alerts
+        </h2>
+        {loading ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[1, 2, 3, 4].map((n) => (
+              <div key={n} className="bg-warm-200 rounded-xl p-4 h-20 animate-pulse" />
+            ))}
+          </div>
+        ) : lowItems.length === 0 ? (
+          <div className="bg-white rounded-xl border border-linen p-6 shadow-soft text-center">
+            <p className="text-status-fresh font-medium">All stocked up!</p>
+            <p className="text-warm-500 text-sm mt-1">No items are predicted to run out soon.</p>
+          </div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {lowItems.map((item) => (
+              <AlertCard key={item.id} item={item} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Spending */}
+      <section className="mb-8 animate-fade-in-up" style={{ animationDelay: "250ms" }}>
+        <h2 className="font-heading text-xl text-warm-800 mb-3">
+          Spending
+        </h2>
+        <div className="bg-white rounded-2xl border border-linen p-6 shadow-card">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-warm-500 text-sm">Monthly comparison</span>
+            <span className="text-xs text-warm-500 italic">Spending analytics coming soon</span>
+          </div>
+          <div className="flex gap-6 items-end h-20">
+            <div className="flex flex-col items-center gap-1 flex-1">
+              <div className="w-full bg-warm-200 rounded-t" style={{ height: "48px" }} />
+              <span className="text-xs text-warm-500">Last month</span>
+            </div>
+            <div className="flex flex-col items-center gap-1 flex-1">
+              <div className="w-full bg-sage-300 rounded-t" style={{ height: "64px" }} />
+              <span className="text-xs text-warm-500">This month</span>
+            </div>
+          </div>
+          <p className="text-warm-500 text-xs mt-3 text-center">
+            Scan receipts to start tracking spend
+          </p>
+        </div>
+      </section>
+
+      {/* Recent Activity */}
+      <section className="animate-fade-in-up" style={{ animationDelay: "300ms" }}>
+        <h2 className="font-heading text-xl text-warm-800 mb-3">
+          Recent Activity
+        </h2>
+        <div className="bg-white rounded-2xl border border-linen p-6 shadow-card">
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <Clock className="w-10 h-10 text-warm-300 mb-3" strokeWidth={1.25} />
+            <p className="font-heading text-lg text-warm-800 mb-1">No recent activity</p>
+            <p className="text-sm text-warm-500 max-w-xs">
+              Scan a receipt or update your inventory to see activity here.
+            </p>
+          </div>
         </div>
       </section>
     </div>
