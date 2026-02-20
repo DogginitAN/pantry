@@ -160,7 +160,8 @@ export default function ReceiptsPage() {
 
   return (
     <div className="p-4 md:p-6 max-w-2xl mx-auto animate-fade-in-up">
-      <h1 className="font-heading text-2xl text-warm-900 mb-6">Receipts</h1>
+      <h1 className="font-heading text-2xl text-warm-900 mb-1">Receipts</h1>
+      <p className="text-warm-500 text-sm mb-6">Scan and manage your grocery receipts.</p>
 
       {/* ── Hidden file inputs — permanently rendered so refs survive on iOS ── */}
       {/* Desktop/general file picker — static accept prop required for iOS */}
