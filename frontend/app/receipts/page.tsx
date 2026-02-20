@@ -3,8 +3,9 @@
 import { useRef, useState, useEffect } from "react";
 import Link from "next/link";
 import { Upload, Camera, Receipt as ReceiptIcon } from "lucide-react";
+import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { uploadReceipt, getReceipts, Receipt } from "@/lib/api";
-import { EmptyState, LoadingSpinner } from "@/components/ui";
+import { EmptyState } from "@/components/ui";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -81,6 +82,7 @@ export default function ReceiptsPage() {
   // ── File handling ──────────────────────────────────────────────────────────
 
   async function handleFile(file: File) {
+    if (stage === "uploading" || stage === "saving") return; // prevent double-submit
     setStage("uploading");
     setErrorMsg(null);
     try {
@@ -268,8 +270,16 @@ export default function ReceiptsPage() {
 
       {/* ── Uploading ─────────────────────────────────────────────────────── */}
       {stage === "uploading" && (
-        <div className="py-12">
-          <LoadingSpinner message="Processing receipt…" />
+        <div className="flex flex-col items-center justify-center py-12 gap-2">
+          <DotLottieReact
+            src="/animations/receipt-processing.lottie"
+            loop
+            autoplay
+            style={{ width: 180, height: 180 }}
+          />
+          <p className="text-warm-500 text-sm italic">
+            Analyzing your receipt… This usually takes 15–20 seconds
+          </p>
         </div>
       )}
 
@@ -359,8 +369,9 @@ export default function ReceiptsPage() {
 
       {/* ── Saving ────────────────────────────────────────────────────────── */}
       {stage === "saving" && (
-        <div className="py-12">
-          <LoadingSpinner message="Saving to inventory…" />
+        <div className="flex flex-col items-center justify-center py-12 gap-3">
+          <div className="w-6 h-6 border-2 border-sage-200 border-t-sage-500 rounded-full animate-spin" />
+          <p className="text-warm-500 text-sm">Saving to inventory…</p>
         </div>
       )}
 

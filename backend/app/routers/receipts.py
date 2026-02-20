@@ -10,6 +10,7 @@ Upload flow:
   6. Return fully populated receipt + items to frontend
 """
 import asyncio
+import logging
 import os
 import uuid
 from datetime import datetime
@@ -18,6 +19,8 @@ from typing import Optional
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.database import engine, get_db
 from app.services.vision_receipt import parse_receipt
@@ -142,13 +145,23 @@ async def upload_receipt(file: UploadFile = File(...)):
     try:
         parsed = await asyncio.to_thread(parse_receipt, file_path)
     except Exception:
-        # Vision failed — mark ready with no items so frontend isn't stuck
+        logger.exception("Vision processing failed for receipt %d", receipt_id)
         with engine.begin() as conn:
             conn.execute(
-                text("UPDATE receipts SET processing_status = 'ready' WHERE id = :id"),
+                text("UPDATE receipts SET processing_status = 'failed' WHERE id = :id"),
                 {"id": receipt_id},
             )
-        return {**dict(row), "processing_status": "ready", "items": []}
+        return {**dict(row), "processing_status": "failed", "items": []}
+
+    # Guard: if parse returned but extracted nothing useful, mark as failed
+    if not parsed.get("store_name") and not parsed.get("items"):
+        logger.warning("Vision returned empty result for receipt %d — marking failed", receipt_id)
+        with engine.begin() as conn:
+            conn.execute(
+                text("UPDATE receipts SET processing_status = 'failed' WHERE id = :id"),
+                {"id": receipt_id},
+            )
+        return {**dict(row), "processing_status": "failed", "items": []}
 
     # ── 4. UPDATE receipt header (own connection) ──────────────────────────
     parsed_date = _parse_date(parsed.get("date"))
@@ -231,6 +244,7 @@ async def upload_receipt(file: UploadFile = File(...)):
                     "confidence": 0.9,
                 })
             except Exception:
+                logger.warning("Failed to insert item %r for receipt %d", item, receipt_id, exc_info=True)
                 continue  # skip malformed items, don't abort the whole upload
 
     # ── 6. Return populated receipt + items ───────────────────────────────
@@ -345,3 +359,152 @@ def confirm_receipt(receipt_id: int, db: Session = Depends(get_db)):
 
     db.commit()
     return {"id": row["id"], "processing_status": row["processing_status"]}
+
+
+# ---------------------------------------------------------------------------
+# POST /api/receipts/{receipt_id}/retry — reprocess a failed receipt
+# ---------------------------------------------------------------------------
+
+@router.post("/{receipt_id}/retry")
+async def retry_receipt(receipt_id: int):
+    """Re-run vision processing on a failed receipt using its saved image."""
+    with engine.begin() as conn:
+        row = conn.execute(
+            text(
+                """
+                SELECT id, image_path, processing_status, store_name,
+                       receipt_date, total_amount, created_at
+                FROM receipts WHERE id = :id
+                """
+            ),
+            {"id": receipt_id},
+        ).mappings().fetchone()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Receipt not found")
+
+    if not row["image_path"] or not os.path.exists(row["image_path"]):
+        raise HTTPException(status_code=410, detail="Receipt image no longer available")
+
+    # Mark as processing
+    with engine.begin() as conn:
+        conn.execute(
+            text("UPDATE receipts SET processing_status = 'processing' WHERE id = :id"),
+            {"id": receipt_id},
+        )
+
+    # Delete any stale purchases from prior attempts
+    with engine.begin() as conn:
+        conn.execute(
+            text("DELETE FROM purchases WHERE receipt_id = :id"),
+            {"id": receipt_id},
+        )
+
+    # Re-run vision
+    try:
+        parsed = await asyncio.to_thread(parse_receipt, row["image_path"])
+    except Exception:
+        logger.exception("Vision retry failed for receipt %d", receipt_id)
+        with engine.begin() as conn:
+            conn.execute(
+                text("UPDATE receipts SET processing_status = 'failed' WHERE id = :id"),
+                {"id": receipt_id},
+            )
+        return {**dict(row), "processing_status": "failed", "items": []}
+
+    # Guard: empty parse result
+    if not parsed.get("store_name") and not parsed.get("items"):
+        logger.warning("Vision retry returned empty result for receipt %d — marking failed", receipt_id)
+        with engine.begin() as conn:
+            conn.execute(
+                text("UPDATE receipts SET processing_status = 'failed' WHERE id = :id"),
+                {"id": receipt_id},
+            )
+        return {**dict(row), "processing_status": "failed", "items": []}
+
+    # Update receipt header + insert purchases (same logic as upload)
+    parsed_date = _parse_date(parsed.get("date"))
+    with engine.begin() as conn:
+        updated = conn.execute(
+            text(
+                """
+                UPDATE receipts
+                SET store_name        = :store_name,
+                    receipt_date      = :receipt_date,
+                    total_amount      = :total_amount,
+                    processing_status = 'ready',
+                    ai_provider       = 'ollama'
+                WHERE id = :id
+                RETURNING id, store_name, receipt_date, total_amount,
+                          image_path, processing_status, created_at
+                """
+            ),
+            {
+                "id": receipt_id,
+                "store_name": parsed.get("store_name"),
+                "receipt_date": parsed_date,
+                "total_amount": parsed.get("total"),
+            },
+        ).mappings().fetchone()
+
+        purchase_date = parsed_date or datetime.utcnow()
+        inserted_items = []
+
+        for item in parsed.get("items") or []:
+            name = item.get("name", "").strip()
+            if not name:
+                continue
+            try:
+                product_row = conn.execute(
+                    text(
+                        """
+                        INSERT INTO products (raw_name, canonical_name, category, inventory_status)
+                        VALUES (:name, :name, 'Unknown', 'IN_STOCK')
+                        ON CONFLICT (raw_name) DO UPDATE SET raw_name = EXCLUDED.raw_name
+                        RETURNING id
+                        """
+                    ),
+                    {"name": name},
+                ).fetchone()
+                product_id = product_row[0]
+
+                purchase_row = conn.execute(
+                    text(
+                        """
+                        INSERT INTO purchases
+                            (product_id, receipt_id, quantity, unit_price,
+                             purchase_date, raw_ocr_line, ocr_confidence)
+                        VALUES
+                            (:product_id, :receipt_id, :quantity, :unit_price,
+                             :purchase_date, :raw_ocr_line, :confidence)
+                        RETURNING id, quantity, unit_price,
+                                  (unit_price * quantity) AS total_price
+                        """
+                    ),
+                    {
+                        "product_id": product_id,
+                        "receipt_id": receipt_id,
+                        "quantity": item.get("quantity", 1),
+                        "unit_price": item.get("unit_price", 0),
+                        "purchase_date": purchase_date,
+                        "raw_ocr_line": name,
+                        "confidence": 0.9,
+                    },
+                ).mappings().fetchone()
+
+                inserted_items.append({
+                    "id": purchase_row["id"],
+                    "product_name": name,
+                    "quantity": float(purchase_row["quantity"]) if purchase_row["quantity"] is not None else None,
+                    "unit_price": float(purchase_row["unit_price"]) if purchase_row["unit_price"] is not None else None,
+                    "total_price": float(purchase_row["total_price"]) if purchase_row["total_price"] is not None else None,
+                    "confidence": 0.9,
+                })
+            except Exception:
+                logger.warning("Failed to insert item %r for receipt %d (retry)", item, receipt_id, exc_info=True)
+                continue
+
+    return {
+        **_receipt_row_to_dict(updated),
+        "items": inserted_items,
+    }

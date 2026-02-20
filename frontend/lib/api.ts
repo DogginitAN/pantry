@@ -183,6 +183,10 @@ export function deleteReceipt(id: number): Promise<{ deleted: number }> {
   return apiFetch<{ deleted: number }>(`/receipts/${id}`, { method: "DELETE" });
 }
 
+export function retryReceipt(id: number) {
+  return apiFetch<unknown>(`/receipts/${id}/retry`, { method: "POST" });
+}
+
 export function uploadReceipt(formData: FormData) {
   return fetch(`${BASE_URL}/receipts/upload`, {
     method: "POST",
