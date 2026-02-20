@@ -39,6 +39,17 @@ export type ShoppingListItem = {
   source: string;
 };
 
+// Product search (typeahead)
+export type ProductSuggestion = {
+  id: number;
+  name: string;
+  category: string;
+};
+
+export function searchProducts(q: string): Promise<ProductSuggestion[]> {
+  return apiFetch<ProductSuggestion[]>(`/shopping-lists/search?q=${encodeURIComponent(q)}`);
+}
+
 // Shopping list
 export function getShoppingLists(): Promise<ShoppingList[]> {
   return apiFetch<ShoppingList[]>("/shopping-lists");

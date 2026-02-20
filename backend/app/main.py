@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import inventory, meals, classifier, spending, export, receipts
+from app.routers import inventory, meals, classifier, spending, export, receipts, shopping_lists
 
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 VISION_MODEL = "llama3.2-vision:11b"
@@ -61,6 +61,7 @@ app.include_router(spending.spending_router)
 app.include_router(spending.settings_router)
 app.include_router(export.router, prefix="/api/export")
 app.include_router(receipts.router)
+app.include_router(shopping_lists.router)
 
 
 @app.get("/health")

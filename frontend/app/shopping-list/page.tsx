@@ -7,12 +7,15 @@ import {
   getShoppingLists,
   getShoppingList,
   createShoppingList,
+  deleteShoppingList,
   generateShoppingList,
   addShoppingListItem,
   updateShoppingListItem,
   deleteShoppingListItem,
+  searchProducts,
   ShoppingList,
   ShoppingListItem,
+  ProductSuggestion,
 } from "@/lib/api";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -48,9 +51,15 @@ export default function ShoppingListPage() {
   const [addName, setAddName] = useState("");
   const [addQty, setAddQty] = useState(1);
   const [adding, setAdding] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
+  const [suggestions, setSuggestions] = useState<ProductSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [copyLabel, setCopyLabel] = useState("Share List");
   const [error, setError] = useState<string | null>(null);
   const newListInputRef = useRef<HTMLInputElement>(null);
+  const addInputRef = useRef<HTMLInputElement>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load all lists on mount
   useEffect(() => {
@@ -92,6 +101,49 @@ export default function ShoppingListPage() {
     } finally {
       setLoadingLists(false);
     }
+  }
+
+  async function handleDeleteList(listId: number) {
+    if (!confirm("Delete this shopping list?")) return;
+    try {
+      await deleteShoppingList(listId);
+      const remaining = lists.filter((l) => l.id !== listId);
+      setLists(remaining);
+      if (activeListId === listId) {
+        setActiveListId(remaining.length > 0 ? remaining[0].id : null);
+      }
+    } catch {
+      setError("Failed to delete list.");
+    }
+  }
+
+  function handleAddNameChange(value: string) {
+    setAddName(value);
+    setSelectedProductId(null);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    if (value.trim().length < 2) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    searchTimerRef.current = setTimeout(async () => {
+      try {
+        const results = await searchProducts(value.trim());
+        setSuggestions(results);
+        setShowSuggestions(results.length > 0);
+      } catch {
+        setSuggestions([]);
+        setShowSuggestions(false);
+      }
+    }, 200);
+  }
+
+  function handleSelectSuggestion(s: ProductSuggestion) {
+    setAddName(s.name);
+    setSelectedProductId(s.id);
+    setSuggestions([]);
+    setShowSuggestions(false);
+    addInputRef.current?.focus();
   }
 
   async function handleAutoGenerate() {
@@ -153,15 +205,18 @@ export default function ShoppingListPage() {
     if (!activeListId || !addName.trim()) return;
     setAdding(true);
     setError(null);
+    setShowSuggestions(false);
     try {
       const newItem = await addShoppingListItem(activeListId, {
         product_name: addName.trim(),
         quantity: addQty,
+        product_id: selectedProductId ?? undefined,
         source: "manual",
       });
       setItems((prev) => [...prev, newItem]);
       setAddName("");
       setAddQty(1);
+      setSelectedProductId(null);
       // Update item_count in sidebar
       setLists((prev) =>
         prev.map((l) =>
@@ -311,22 +366,33 @@ export default function ShoppingListPage() {
           {/* Sidebar — horizontal scroll tabs on mobile, vertical list on md+ */}
           <aside className="md:w-56 shrink-0 flex flex-nowrap overflow-x-auto md:flex-col gap-1 pb-1 md:pb-0">
             {lists.map((list) => (
-              <button
+              <div
                 key={list.id}
-                onClick={() => setActiveListId(list.id)}
-                className={`shrink-0 text-left px-3 py-2.5 rounded-xl transition-colors duration-200 ${
+                className={`shrink-0 flex items-center gap-0.5 group rounded-xl transition-colors duration-200 ${
                   list.id === activeListId
                     ? "bg-sage-50 text-sage-700"
                     : "text-warm-600 hover:bg-warm-100 hover:text-warm-800"
                 }`}
               >
-                <div className={`text-sm truncate ${list.id === activeListId ? "font-semibold" : "font-medium"}`}>
-                  {list.name}
-                </div>
-                <div className="text-xs text-warm-500 mt-0.5">
-                  {list.item_count ?? 0} item{list.item_count !== 1 ? "s" : ""}
-                </div>
-              </button>
+                <button
+                  onClick={() => setActiveListId(list.id)}
+                  className="flex-1 text-left px-3 py-2.5 min-w-0"
+                >
+                  <div className={`text-sm truncate ${list.id === activeListId ? "font-semibold" : "font-medium"}`}>
+                    {list.name}
+                  </div>
+                  <div className="text-xs text-warm-500 mt-0.5">
+                    {list.item_count ?? 0} item{list.item_count !== 1 ? "s" : ""}
+                  </div>
+                </button>
+                <button
+                  onClick={() => handleDeleteList(list.id)}
+                  className="opacity-0 group-hover:opacity-100 p-1.5 mr-1 rounded-full text-warm-400 hover:text-status-out hover:bg-[#FDEAE5] transition-all duration-200 shrink-0"
+                  title="Delete list"
+                >
+                  <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+                </button>
+              </div>
             ))}
           </aside>
 
@@ -404,14 +470,42 @@ export default function ShoppingListPage() {
 
                 {/* Add item row — stacks on mobile, row on sm+ */}
                 <div className="flex flex-col sm:flex-row gap-2 mt-1">
-                  <input
-                    type="text"
-                    value={addName}
-                    onChange={(e) => setAddName(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") handleAddItem(); }}
-                    placeholder="Add item…"
-                    className="flex-1 px-4 py-3 rounded-xl border border-warm-300 bg-white text-warm-800 text-sm placeholder:text-warm-400 focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-sage-400 transition-all duration-200"
-                  />
+                  <div className="relative flex-1">
+                    <input
+                      ref={addInputRef}
+                      type="text"
+                      value={addName}
+                      onChange={(e) => handleAddNameChange(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") { setShowSuggestions(false); handleAddItem(); }
+                        if (e.key === "Escape") setShowSuggestions(false);
+                      }}
+                      onBlur={() => {
+                        // Delay so click on suggestion can register
+                        setTimeout(() => setShowSuggestions(false), 150);
+                      }}
+                      placeholder="Add item…"
+                      className="w-full px-4 py-3 rounded-xl border border-warm-300 bg-white text-warm-800 text-sm placeholder:text-warm-400 focus:outline-none focus:ring-2 focus:ring-sage-200 focus:border-sage-400 transition-all duration-200"
+                    />
+                    {showSuggestions && suggestions.length > 0 && (
+                      <div
+                        ref={suggestionsRef}
+                        className="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-linen rounded-xl shadow-lg overflow-hidden"
+                      >
+                        {suggestions.map((s) => (
+                          <button
+                            key={s.id}
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => handleSelectSuggestion(s)}
+                            className="w-full text-left px-4 py-2.5 hover:bg-sage-50 transition-colors flex items-center justify-between gap-2"
+                          >
+                            <span className="text-sm text-warm-800 font-medium truncate">{s.name}</span>
+                            <span className="text-xs text-warm-400 shrink-0">{s.category}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <div className="flex gap-2">
                     <input
                       type="number"
