@@ -67,3 +67,4 @@ dashboard/*.png
 dashboard/*.png
 LEARNINGS.md
 *.pyc
+backend/uploads/
