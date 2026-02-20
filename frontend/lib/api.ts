@@ -234,7 +234,7 @@ export function getBudget(): Promise<BudgetSettings> {
 
 export function setBudget(monthly_budget: number | null): Promise<BudgetSettings> {
   return apiFetch<BudgetSettings>("/settings/budget", {
-    method: "POST",
+    method: "PATCH",
     body: JSON.stringify({ monthly_budget }),
   });
 }

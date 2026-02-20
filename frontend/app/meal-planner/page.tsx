@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { ChefHat, Bookmark } from "lucide-react";
+import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { EmptyState, ErrorState, LoadingSpinner } from "@/components/ui";
 import {
   suggestMeals,
@@ -46,6 +47,22 @@ function ButtonSpinner() {
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
     </svg>
+  );
+}
+
+// ─── Cooking Animation (loading state) ───────────────────────────────────────
+
+function CookingAnimation() {
+  return (
+    <div className="flex flex-col items-center justify-center py-12 gap-2">
+      <DotLottieReact
+        src="/animations/cooking.lottie"
+        loop
+        autoplay
+        style={{ width: 200, height: 200 }}
+      />
+      <p className="text-warm-500 text-sm italic">Finding the perfect meals for your pantry…</p>
+    </div>
   );
 }
 
@@ -350,7 +367,10 @@ export default function MealPlannerPage() {
     setSuggesting(true);
     setSuggestError(null);
     try {
-      const data = await suggestMeals();
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("timeout")), 10000)
+      );
+      const data = await Promise.race([suggestMeals(), timeout]);
       setSuggestions(
         data.suggestions.map((s) => ({
           id: s.id,
@@ -363,7 +383,7 @@ export default function MealPlannerPage() {
       );
     } catch {
       setSuggestError(
-        "Failed to get suggestions. The AI may be unavailable or still warming up."
+        "Couldn't generate suggestions right now"
       );
     } finally {
       setSuggesting(false);
@@ -389,7 +409,10 @@ export default function MealPlannerPage() {
 
   return (
     <div className="flex flex-col gap-6 animate-fade-in-up">
-      <h1 className="font-heading text-2xl text-warm-900">Meal Planner</h1>
+      <div>
+        <h1 className="font-heading text-2xl text-warm-900 mb-1">Meal Planner</h1>
+        <p className="text-warm-500 text-sm">AI-powered suggestions from your pantry.</p>
+      </div>
 
       {/* Tab bar */}
       <div className="flex overflow-x-auto flex-nowrap gap-1 border-b border-linen">
@@ -427,12 +450,24 @@ export default function MealPlannerPage() {
             </button>
           </div>
 
-          {suggestError && <ErrorState message={suggestError} />}
+          {suggestError && (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <ChefHat className="w-12 h-12 text-warm-300 mb-4" strokeWidth={1.25} />
+              <p className="font-heading text-lg text-warm-800 mb-1">{suggestError}</p>
+              <p className="text-sm text-warm-500 max-w-xs mb-4">
+                The AI may be unavailable or still warming up. Give it another try.
+              </p>
+              <button
+                onClick={handleSuggest}
+                className="bg-sage-500 hover:bg-sage-600 active:bg-sage-700 text-white text-sm font-medium rounded-full px-6 py-2.5 transition-colors shadow-sm"
+              >
+                Try Again
+              </button>
+            </div>
+          )}
 
           {/* Loading state during generation */}
-          {suggesting && (
-            <LoadingSpinner message="Finding the perfect meals for your pantry…" />
-          )}
+          {suggesting && <CookingAnimation />}
 
           {!suggesting && suggestions.length > 0 && (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
