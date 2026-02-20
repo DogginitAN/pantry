@@ -246,7 +246,7 @@ export default function ReceiptsPage() {
                           {receipt.store_name ?? "Unknown Store"}
                         </p>
                         <p className="text-warm-500 text-sm">
-                          {new Date(receipt.receipt_date || receipt.created_at).toLocaleDateString()}
+                          {new Date(receipt.receipt_date || receipt.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                         </p>
                       </div>
                       <div className="flex items-center gap-3 shrink-0">
@@ -283,7 +283,11 @@ export default function ReceiptsPage() {
                 <p className="text-warm-800 font-semibold text-base">
                   {result.store_name ?? "Unknown Store"}
                 </p>
-                <p className="text-warm-500 text-sm">{result.receipt_date ?? "Date unknown"}</p>
+                <p className="text-warm-500 text-sm">
+                  {result.receipt_date
+                    ? new Date(result.receipt_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                    : "Date unknown"}
+                </p>
               </div>
               {result.total_amount != null && (
                 <p className="text-sage-600 font-semibold text-xl shrink-0">

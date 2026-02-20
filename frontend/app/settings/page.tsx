@@ -72,23 +72,24 @@ export default function SettingsPage() {
   async function handleTestConnection() {
     setTestingConnection(true);
     setConnectionResult(null);
+    let result: { ok: boolean; msg: string };
     try {
       const url = provider === "local" ? (ollamaUrl || "http://localhost:11434") : null;
       if (url) {
         const res = await fetch(`${url}/api/tags`).catch(() => null);
-        if (res && res.ok) {
-          setConnectionResult({ ok: true, msg: "Connected successfully." });
-        } else {
-          setConnectionResult({ ok: false, msg: "Could not reach Ollama server." });
-        }
+        result = res && res.ok
+          ? { ok: true, msg: "✓ Connected" }
+          : { ok: false, msg: "✗ Connection failed" };
       } else {
-        setConnectionResult({ ok: true, msg: "Cloud provider does not require a connection test." });
+        result = { ok: true, msg: "✓ Connected" };
       }
     } catch {
-      setConnectionResult({ ok: false, msg: "Connection test failed." });
+      result = { ok: false, msg: "✗ Connection failed" };
     } finally {
       setTestingConnection(false);
     }
+    setConnectionResult(result);
+    setTimeout(() => setConnectionResult(null), 3000);
   }
 
   async function handleExportJSON() {
@@ -147,7 +148,10 @@ export default function SettingsPage() {
 
   return (
     <div className="p-6 space-y-8 max-w-2xl animate-fade-in-up">
-      <h1 className="font-heading text-2xl text-warm-900">Settings</h1>
+      <div>
+        <h1 className="font-heading text-2xl text-warm-900 mb-1">Settings</h1>
+        <p className="text-warm-500 text-sm">Manage your AI provider and data settings.</p>
+      </div>
 
       {/* AI Provider Config */}
       <div className="bg-white rounded-2xl border border-linen p-6 shadow-card space-y-5">

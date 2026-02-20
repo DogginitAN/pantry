@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { getReceipt, Receipt, ReceiptItem } from "@/lib/api";
+import { useParams, useRouter } from "next/navigation";
+import { getReceipt, deleteReceipt, Receipt, ReceiptItem } from "@/lib/api";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8060/api";
 
@@ -41,6 +41,7 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function ReceiptDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const receiptId = Number(params.id as string);
 
   const [receipt, setReceipt] = useState<Receipt | null>(null);
@@ -49,6 +50,7 @@ export default function ReceiptDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
+  const [discarding, setDiscarding] = useState(false);
 
   function loadReceipt() {
     setLoading(true);
@@ -83,6 +85,16 @@ export default function ReceiptDetailPage() {
       setConfirmError(e instanceof Error ? e.message : "Save failed");
     } finally {
       setConfirming(false);
+    }
+  }
+
+  async function handleDiscard() {
+    setDiscarding(true);
+    try {
+      await deleteReceipt(receiptId);
+      router.push("/receipts");
+    } catch {
+      setDiscarding(false);
     }
   }
 
@@ -138,7 +150,7 @@ export default function ReceiptDetailPage() {
             </h1>
             <p className="text-warm-500 text-sm mt-0.5">
               {displayDate
-                ? new Date(displayDate).toLocaleDateString()
+                ? new Date(displayDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
                 : "Date unknown"}
             </p>
           </div>
@@ -168,13 +180,12 @@ export default function ReceiptDetailPage() {
                 <th className="px-5 py-3 text-right text-xs font-medium text-warm-500 whitespace-nowrap">Qty</th>
                 <th className="px-5 py-3 text-right text-xs font-medium text-warm-500 whitespace-nowrap">Unit Price</th>
                 <th className="px-5 py-3 text-right text-xs font-medium text-warm-500 whitespace-nowrap">Total</th>
-                <th className="px-5 py-3 text-right text-xs font-medium text-warm-500 whitespace-nowrap">Conf.</th>
               </tr>
             </thead>
             <tbody>
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-5 py-10 text-center text-warm-400">
+                  <td colSpan={4} className="px-5 py-10 text-center text-warm-400">
                     No items found
                   </td>
                 </tr>
@@ -205,21 +216,6 @@ export default function ReceiptDetailPage() {
                         ? `$${item.total_price.toFixed(2)}`
                         : "—"}
                     </td>
-                    <td className="px-5 py-3.5 text-right whitespace-nowrap">
-                      {item.confidence != null ? (
-                        <span
-                          className={
-                            item.confidence < 0.7
-                              ? "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#FFF3E0] text-status-low"
-                              : "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#E8F3E8] text-status-fresh"
-                          }
-                        >
-                          {Math.round(item.confidence * 100)}%
-                        </span>
-                      ) : (
-                        <span className="text-warm-400">—</span>
-                      )}
-                    </td>
                   </tr>
                 ))
               )}
@@ -228,24 +224,36 @@ export default function ReceiptDetailPage() {
         </div>
       </div>
 
-      {/* Confirm — shown only when status is "ready" */}
-      {receipt.processing_status === "ready" && (
-        <div>
-          {confirmError && (
-            <p className="text-status-out text-sm mb-2">{confirmError}</p>
-          )}
-          <button
-            onClick={handleConfirm}
-            disabled={confirming}
-            className="w-full py-2.5 min-h-[44px] bg-sage-500 hover:bg-sage-600 active:bg-sage-700 disabled:opacity-50 text-white rounded-full font-medium text-sm transition-colors shadow-sm flex items-center justify-center gap-2"
-          >
-            {confirming && (
-              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+      {/* Actions */}
+      <div className="flex gap-3">
+        {receipt.processing_status === "ready" && (
+          <div className="flex-1">
+            {confirmError && (
+              <p className="text-status-out text-sm mb-2">{confirmError}</p>
             )}
-            {confirming ? "Saving…" : "Save to Inventory"}
-          </button>
-        </div>
-      )}
+            <button
+              onClick={handleConfirm}
+              disabled={confirming || discarding}
+              className="w-full py-2.5 min-h-[44px] bg-sage-500 hover:bg-sage-600 active:bg-sage-700 disabled:opacity-50 text-white rounded-full font-medium text-sm transition-colors shadow-sm flex items-center justify-center gap-2"
+            >
+              {confirming && (
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              )}
+              {confirming ? "Saving…" : "Save to Inventory"}
+            </button>
+          </div>
+        )}
+        <button
+          onClick={handleDiscard}
+          disabled={discarding || confirming}
+          className="flex-1 py-2.5 min-h-[44px] border border-terra-400 text-terra-600 hover:bg-terra-50 active:bg-terra-100 disabled:opacity-50 rounded-full font-medium text-sm transition-colors flex items-center justify-center gap-2"
+        >
+          {discarding && (
+            <span className="w-4 h-4 border-2 border-terra-300 border-t-terra-600 rounded-full animate-spin" />
+          )}
+          {discarding ? "Deleting…" : "Discard"}
+        </button>
+      </div>
     </div>
   );
 }

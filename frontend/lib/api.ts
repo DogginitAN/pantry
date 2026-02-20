@@ -179,6 +179,10 @@ export function getReceipt(id: number): Promise<{ receipt: Receipt; items: Recei
   return apiFetch<{ receipt: Receipt; items: ReceiptItem[] }>(`/receipts/${id}`);
 }
 
+export function deleteReceipt(id: number): Promise<{ deleted: number }> {
+  return apiFetch<{ deleted: number }>(`/receipts/${id}`, { method: "DELETE" });
+}
+
 export function uploadReceipt(formData: FormData) {
   return fetch(`${BASE_URL}/receipts/upload`, {
     method: "POST",
