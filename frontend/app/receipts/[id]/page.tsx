@@ -270,9 +270,9 @@ export default function ReceiptDetailPage() {
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex gap-3">
-            {receipt.processing_status === "ready" && (
+          {/* Actions — only show pre-save (ready); failed state has its own buttons */}
+          {receipt.processing_status === "ready" && (
+            <div className="flex gap-3">
               <div className="flex-1">
                 {confirmError && (
                   <p className="text-status-out text-sm mb-2">{confirmError}</p>
@@ -288,18 +288,18 @@ export default function ReceiptDetailPage() {
                   {confirming ? "Saving…" : "Save to Inventory"}
                 </button>
               </div>
-            )}
-            <button
-              onClick={handleDiscard}
-              disabled={discarding || confirming}
-              className="flex-1 py-2.5 min-h-[44px] border border-terra-400 text-terra-600 hover:bg-terra-50 active:bg-terra-100 disabled:opacity-50 rounded-full font-medium text-sm transition-colors flex items-center justify-center gap-2"
-            >
-              {discarding && (
-                <span className="w-4 h-4 border-2 border-terra-300 border-t-terra-600 rounded-full animate-spin" />
-              )}
-              {discarding ? "Deleting…" : "Discard"}
-            </button>
-          </div>
+              <button
+                onClick={handleDiscard}
+                disabled={discarding || confirming}
+                className="flex-1 py-2.5 min-h-[44px] border border-terra-400 text-terra-600 hover:bg-terra-50 active:bg-terra-100 disabled:opacity-50 rounded-full font-medium text-sm transition-colors flex items-center justify-center gap-2"
+              >
+                {discarding && (
+                  <span className="w-4 h-4 border-2 border-terra-300 border-t-terra-600 rounded-full animate-spin" />
+                )}
+                {discarding ? "Deleting…" : "Discard"}
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>
