@@ -4,9 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
-import { getReceipt, deleteReceipt, retryReceipt, Receipt, ReceiptItem } from "@/lib/api";
-
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8060/api";
+import { getReceipt, deleteReceipt, retryReceipt, confirmReceipt, Receipt, ReceiptItem } from "@/lib/api";
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
 
@@ -77,11 +75,7 @@ export default function ReceiptDetailPage() {
     setConfirming(true);
     setConfirmError(null);
     try {
-      const res = await fetch(`${BASE_URL}/receipts/${receiptId}/confirm`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      if (!res.ok) throw new Error(`Confirm error ${res.status}`);
+      await confirmReceipt(receiptId);
       loadReceipt();
     } catch (e) {
       setConfirmError(e instanceof Error ? e.message : "Save failed");

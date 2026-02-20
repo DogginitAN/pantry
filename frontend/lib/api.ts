@@ -183,6 +183,10 @@ export function deleteReceipt(id: number): Promise<{ deleted: number }> {
   return apiFetch<{ deleted: number }>(`/receipts/${id}`, { method: "DELETE" });
 }
 
+export function confirmReceipt(id: number): Promise<{ id: number; processing_status: string }> {
+  return apiFetch<{ id: number; processing_status: string }>(`/receipts/${id}/confirm`, { method: "POST" });
+}
+
 export function retryReceipt(id: number) {
   return apiFetch<unknown>(`/receipts/${id}/retry`, { method: "POST" });
 }
