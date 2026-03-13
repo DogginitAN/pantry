@@ -62,6 +62,7 @@ _PROFILE_MAP = {
     "Frozen": "frozen",
     "Household": "household",
     "Pantry": "pantry",
+    "Beverage": "pantry",
 }
 
 
